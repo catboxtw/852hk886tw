@@ -29,20 +29,35 @@ function renderLogoAndSocial() {
     const logoContainer = document.getElementById('logo-container');
     const storeContainer = document.getElementById('store-container');
 
-    // 嚴格對應 Content 分頁與你的欄位名 URLLink, Image
     const content = allData["Content"] || [];
-    
+    console.log("偵測到的 Content 原始資料:", content); // 可以在瀏覽器 F12 檢查
+
+    // 1. 處理 Logo
     const logoRow = content.find(r => r.Type === 'Logo');
     if (logoRow) {
-        logoContainer.innerHTML = `<img src="${logoRow.Image}" class="h-10">`;
+        // 使用括號標法防止欄位名有空格
+        const imgUrl = logoRow["Image"] || logoRow["圖片"]; 
+        logoContainer.innerHTML = `<img src="${imgUrl}" class="h-10">`;
     }
 
+    // 2. 處理 Social 圖標
     const socials = content.filter(r => r.Type === 'Social');
-    storeContainer.innerHTML = socials.map(s => `
-        <a href="${s.URLLink}" target="_blank" class="hover:scale-110 transition-transform">
-            <img src="${s.Image}" class="h-6 w-6 object-contain">
-        </a>
-    `).join('');
+    
+    if (socials.length > 0) {
+        storeContainer.innerHTML = socials.map(s => {
+            // 自動偵測可能的欄位名稱 (對應你提供的 Image 和 URLLink)
+            const img = s["Image"] || s["圖片"] || "";
+            const link = s["URLLink"] || s["連結"] || s["Link"] || "#";
+            
+            return `
+                <a href="${link}" target="_blank" class="hover:scale-110 transition-transform block">
+                    <img src="${img}" class="h-6 w-6 object-contain opacity-80 hover:opacity-100" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2111/2111463.png'">
+                </a>
+            `;
+        }).join('');
+    } else {
+        console.warn("未發現 Social 類型的資料，請檢查試算表 Type 欄位是否精確等於 Social");
+    }
 }
 
 function loadPage(pageName) {
