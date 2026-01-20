@@ -30,33 +30,39 @@ function renderLogoAndSocial() {
     const storeContainer = document.getElementById('store-container');
 
     const content = allData["Content"] || [];
-    console.log("偵測到的 Content 原始資料:", content); // 可以在瀏覽器 F12 檢查
-
+    
     // 1. 處理 Logo
     const logoRow = content.find(r => r.Type === 'Logo');
     if (logoRow) {
-        // 使用括號標法防止欄位名有空格
-        const imgUrl = logoRow["Image"] || logoRow["圖片"]; 
-        logoContainer.innerHTML = `<img src="${imgUrl}" class="h-10">`;
+        // 自動嘗試不同的欄位名稱 key
+        let imgUrl = logoRow.Image || logoRow.ImageURL || logoRow["圖片"] || "";
+        imgUrl = imgUrl.toString().trim(); // 清除可能存在的換行或空白
+        if (imgUrl) {
+            logoContainer.innerHTML = `<img src="${imgUrl}" class="h-10 object-contain" alt="Catbox Logo">`;
+        }
     }
 
     // 2. 處理 Social 圖標
     const socials = content.filter(r => r.Type === 'Social');
-    
     if (socials.length > 0) {
         storeContainer.innerHTML = socials.map(s => {
-            // 自動偵測可能的欄位名稱 (對應你提供的 Image 和 URLLink)
-            const img = s["Image"] || s["圖片"] || "";
-            const link = s["URLLink"] || s["連結"] || s["Link"] || "#";
+            // 取得圖片網址並清理
+            let img = s.Image || s.ImageURL || s["圖片"] || "";
+            img = img.toString().trim(); 
             
+            // 取得連結並清理
+            let link = s.URLLink || s.Link || s["連結"] || "#";
+            link = link.toString().trim();
+
             return `
-                <a href="${link}" target="_blank" class="hover:scale-110 transition-transform block">
-                    <img src="${img}" class="h-6 w-6 object-contain opacity-80 hover:opacity-100" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2111/2111463.png'">
+                <a href="${link}" target="_blank" class="hover:scale-110 transition-transform block" title="Social Link">
+                    <img src="${img}" 
+                         class="h-6 w-6 object-cover rounded-full border border-[#D7CCC8]" 
+                         style="display: block;"
+                         onerror="this.onerror=null; this.src='https://cdn-icons-png.flaticon.com/512/2111/2111463.png';">
                 </a>
             `;
         }).join('');
-    } else {
-        console.warn("未發現 Social 類型的資料，請檢查試算表 Type 欄位是否精確等於 Social");
     }
 }
 
