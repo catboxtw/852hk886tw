@@ -129,7 +129,7 @@ function renderCheckoutPage() {
     const items = Object.entries(cart);
     let total = 0;
     if (items.length === 0) {
-        document.getElementById('app').innerHTML = `<div class="py-20 text-center"><p class="text-gray-400 mb-6 font-bold">您的購物車目前是空的</p><button onclick="switchPage('Product Catalog')" class="bg-[#5D4037] text-white px-8 py-3 rounded-xl">去逛逛</button></div>`;
+        document.getElementById('app').innerHTML = `<div class="py-20 text-center animate-fade-in"><p class="text-gray-400 mb-6 font-bold">您的購物車目前是空的</p><button onclick="switchPage('Product Catalog')" class="bg-[#5D4037] text-white px-8 py-3 rounded-xl">去逛逛</button></div>`;
         return;
     }
     
@@ -138,22 +138,25 @@ function renderCheckoutPage() {
         return `
         <div class="flex items-center justify-between py-4 border-b">
             <div class="flex items-center gap-4">
-                <img src="${item.img}" class="w-12 h-12 object-cover rounded-md">
+                <img src="${item.img}" 
+                     class="w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition" 
+                     onclick="switchPage('product', {id:'${id}'})">
                 <div>
-                    <div class="font-bold text-sm text-[#5D4037]">${item.name}</div>
+                    <div class="font-bold text-sm text-[#5D4037] cursor-pointer hover:text-[#8D6E63]" onclick="switchPage('product', {id:'${id}'})">${item.name}</div>
                     <div class="text-xs text-[#8D6E63]">HK$ ${item.price} x ${item.qty}</div>
                 </div>
             </div>
             <div class="flex items-center gap-3">
-                <button onclick="changeQty('${id}', -1)" class="w-6 h-6 border rounded">-</button>
-                <span>${item.qty}</span>
-                <button onclick="changeQty('${id}', 1)" class="w-6 h-6 border rounded">+</button>
+                <button onclick="changeQty('${id}', -1)" class="w-8 h-8 border border-[#D7CCC8] rounded-full flex items-center justify-center hover:bg-gray-50">-</button>
+                <span class="w-6 text-center font-medium">${item.qty}</span>
+                <button onclick="changeQty('${id}', 1)" class="w-8 h-8 border border-[#D7CCC8] rounded-full flex items-center justify-center hover:bg-gray-50">+</button>
             </div>
         </div>`;
     }).join('');
 
+    // ... 下方的結帳表單 HTML 保持不變 ...
     document.getElementById('app').innerHTML = `
-        <div class="max-w-4xl mx-auto flex flex-col md:flex-row gap-8">
+        <div class="max-w-4xl mx-auto flex flex-col md:flex-row gap-8 animate-fade-in">
             <div class="md:w-1/2 bg-white p-8 rounded-3xl border border-[#D7CCC8]">
                 <h2 class="text-xl font-bold mb-6">購物清單</h2>
                 <div class="mb-4">${itemsHtml}</div>
@@ -162,9 +165,9 @@ function renderCheckoutPage() {
             <div class="md:w-1/2 bg-white p-8 rounded-3xl border border-[#D7CCC8]">
                 <h2 class="text-xl font-bold mb-6">收件資料</h2>
                 <form onsubmit="submitOrder(event, ${total})" class="space-y-4 text-left">
-                    <input name="name" placeholder="姓名" required class="w-full p-4 border rounded-xl bg-[#FAFAFA]">
-                    <input name="phone" placeholder="電話" required class="w-full p-4 border rounded-xl bg-[#FAFAFA]">
-                    <textarea name="address" placeholder="收件地址 / 順豐站碼" required class="w-full p-4 border rounded-xl bg-[#FAFAFA] h-28"></textarea>
+                    <input name="name" placeholder="姓名" required class="w-full p-4 border rounded-xl bg-[#FAFAFA] focus:outline-none focus:border-[#8D6E63]">
+                    <input name="phone" placeholder="電話" required class="w-full p-4 border rounded-xl bg-[#FAFAFA] focus:outline-none focus:border-[#8D6E63]">
+                    <textarea name="address" placeholder="收件地址 / 順豐站碼" required class="w-full p-4 border rounded-xl bg-[#FAFAFA] h-28 focus:outline-none focus:border-[#8D6E63]"></textarea>
                     <button type="submit" id="subBtn" class="w-full bg-[#5D4037] text-white py-4 mt-6 rounded-xl font-bold shadow-lg hover:bg-[#4E342E] transition">提交訂單</button>
                 </form>
             </div>
@@ -212,11 +215,21 @@ function addToCart(id, name, price, img) {
 }
 
 function changeQty(id, delta) {
-    cart[id].qty += delta;
-    if (cart[id].qty <= 0) delete cart[id];
+    if (cart[id].qty === 1 && delta === -1) {
+        // 當數量為 1 且用戶點擊減號時，跳出提醒
+        if (confirm(`確定要從購物車中移除「${cart[id].name}」嗎？`)) {
+            delete cart[id];
+        } else {
+            return; // 使用者按取消，則不動作
+        }
+    } else {
+        cart[id].qty += delta;
+        if (cart[id].qty <= 0) delete cart[id];
+    }
+    
     localStorage.setItem('catbox_cart', JSON.stringify(cart));
     updateCartUI();
-    renderCheckoutPage();
+    renderCheckoutPage(); // 重新渲染結帳頁面
 }
 
 function updateCartUI() {
