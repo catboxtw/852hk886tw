@@ -1,8 +1,49 @@
-.nav-fixed { position: sticky; top: 0; z-index: 50; background: white; }
-.nav-bar-bg { background-color: #f97316; }
-.nav-item { color: rgba(255,255,255,0.8); font-weight: bold; transition: 0.3s; border-bottom: 3px solid transparent; }
-.nav-item.active { color: white; border-bottom: 3px solid white; }
-.lang-btn { cursor: pointer; padding: 4px 12px; border-radius: 999px; background: #f3f4f6; font-weight: bold; }
-#main-nav::-webkit-scrollbar { display: none; }
-#app { animation: fadeIn 0.4s ease-out; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+/* 基礎配色：深啡 #5d4037, 中啡 #8d6e63, 淺啡 #d7ccc8, 背景 #Fdfcfb */
+
+.nav-fixed {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.nav-bar-bg {
+    background-color: #5d4037; /* 深啡色導覽列 */
+}
+
+.nav-item {
+    color: #d7ccc8;
+    font-weight: 600;
+    transition: 0.3s;
+}
+
+.nav-item:hover, .nav-item.active {
+    color: #ffffff;
+    background-color: #4e342e;
+}
+
+.lang-btn {
+    background-color: #efebe9;
+    color: #5d4037;
+    padding: 4px 12px;
+    border-radius: 99px;
+    font-size: 12px;
+    border: 1px solid #d7ccc8;
+}
+
+/* 讓圖片在懸停時有優雅的縮放 */
+img {
+    transition: transform 0.3s ease;
+}
+img:hover {
+    transform: scale(1.02);
+}
+
+input, select {
+    border: 1px solid #d7ccc8 !important;
+    outline: none;
+}
+
+input:focus {
+    border-color: #8d6e63 !important;
+    ring: 1px #8d6e63;
+}
