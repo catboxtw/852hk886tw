@@ -3,12 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Catbox 台灣代購 | 7仔預購．蝦皮．正版授權商品</title>
+    <title>Catbox 台灣代購 | 7仔預購．蝦皮</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-[#FDFCFB] text-[#5D4037] font-sans">
+
+    <div id="loading-screen" class="fixed inset-0 bg-[#FDFCFB] z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
+        <div class="w-12 h-12 border-4 border-[#D7CCC8] border-t-[#5D4037] rounded-full animate-spin"></div>
+        <p class="mt-4 text-[#8D6E63] font-medium tracking-widest">Catbox Loading...</p>
+    </div>
 
     <header class="nav-fixed border-b border-[#D7CCC8] bg-white">
         <div class="container mx-auto px-4 py-3 flex justify-between items-center">
@@ -27,7 +31,7 @@
         </div>
         
         <nav class="nav-bar-bg shadow-md">
-            <ul id="main-nav" class="flex justify-center overflow-x-auto whitespace-nowrap py-1">
+            <ul class="flex justify-center overflow-x-auto whitespace-nowrap py-1">
                 <li class="nav-item px-8 py-3 cursor-pointer" onclick="switchPage('Content')">首頁</li>
                 <li class="nav-item px-8 py-3 cursor-pointer" onclick="switchPage('Product Catalog')">所有分類</li>
                 <li class="nav-item px-8 py-3 cursor-pointer" onclick="switchPage('Contact Us')">聯絡我們</li>
@@ -35,7 +39,7 @@
         </nav>
     </header>
 
-    <main id="app" class="container mx-auto px-4 py-8 min-h-[70vh]"></main>
+    <main id="app" class="container mx-auto px-4 py-8 min-h-[70vh] animate-fade-in"></main>
 
     <footer class="bg-white border-t border-[#D7CCC8] py-12 mt-10 text-center">
         <div class="container mx-auto px-4">
