@@ -8,34 +8,39 @@
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gray-50 text-gray-900 font-sans">
+<body class="bg-[#Fdfcfb] text-[#5d4037] font-sans">
 
-    <header class="nav-fixed border-b shadow-sm bg-white">
+    <header class="nav-fixed border-b border-[#d7ccc8] bg-white">
         <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-            <div id="logo-container">
-                <div class="text-xl font-bold animate-pulse text-gray-300">Catbox Loading...</div>
+            <div id="logo-container" class="cursor-pointer" onclick="switchPage('Content')">
+                <div class="text-xl font-bold animate-pulse text-[#a1887f]">Catbox...</div>
             </div>
             <div class="flex items-center gap-4">
                 <div id="store-container" class="hidden md:flex gap-4 items-center"></div>
-                <button id="lang-toggle-btn" class="lang-btn" onclick="toggleLang()"></button>
-                <button onclick="switchPage('checkout')" class="relative p-2 bg-orange-50 rounded-full text-orange-600 hover:bg-orange-100 transition">
+                <button id="lang-toggle-btn" class="lang-btn" onclick="toggleLang()">中/EN</button>
+                <button onclick="switchPage('checkout')" class="relative p-2 bg-[#efebe9] rounded-full text-[#5d4037] hover:bg-[#d7ccc8] transition">
                     <span class="text-xl">🛒</span>
-                    <span id="cart-count-nav" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">0</span>
+                    <span id="cart-count-nav" class="absolute -top-1 -right-1 bg-[#8d6e63] text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">0</span>
                 </button>
             </div>
         </div>
         <nav class="nav-bar-bg">
-            <ul id="main-nav" class="flex justify-center overflow-x-auto whitespace-nowrap py-1"></ul>
+            <ul id="main-nav" class="flex justify-center overflow-x-auto whitespace-nowrap py-1">
+                <li class="nav-item px-6 py-3 cursor-pointer" onclick="switchPage('Content')">首頁</li>
+                <li class="nav-item px-6 py-3 cursor-pointer" onclick="switchPage('Product Catalog')">所有商品</li>
+                <li class="nav-item px-6 py-3 cursor-pointer" onclick="switchPage('Contact Us')">聯絡我們</li>
+            </ul>
         </nav>
     </header>
 
     <main id="app" class="container mx-auto px-4 py-6 min-h-[70vh]">
         </main>
 
-    <footer class="bg-white border-t py-12 mt-10 text-center">
+    <footer class="bg-white border-t border-[#d7ccc8] py-10 mt-10 text-center">
         <div class="container mx-auto px-4">
-            <div class="mb-2 font-bold text-gray-800 text-lg">Catbox 台灣代購</div>
-            <p class="text-gray-400 text-xs italic">&copy; 2026 Catbox Taiwan. All Rights Reserved.</p>
+            <div class="mb-2 font-bold text-[#5d4037] text-lg">Catbox 台灣代購</div>
+            <p class="text-[#8d6e63] text-sm">7仔預購．蝦皮．正版授權商品</p>
+            <p class="text-[#a1887f] text-xs mt-4">&copy; 2026 Catbox Taiwan Agency.</p>
         </div>
     </footer>
 
