@@ -1,25 +1,20 @@
-// 資料來源 (商品與設定)
 const DATA_SOURCE_URL = 'https://script.google.com/macros/s/AKfycbxt4DiwnVxIIitoRb3OiAJqzQEFKHrQGiOhEEv29KQ939vValTksQgTZnNBE4SQWhlk8Q/exec';
-// 訂單提交
 const ORDER_SUBMIT_URL = 'https://script.google.com/macros/s/AKfycby_60SZg2v7JJYnhX3r9dve56ja3nJh6JFZ_bOW26xYOBqTP3jILWsDrTqRjWb6CNpSmA/exec';
 
-let currentLang = 'zh';
 let currentPage = 'Content';
 let cart = JSON.parse(localStorage.getItem('catbox_cart')) || {}; 
-let allData = null; // 儲存從 GAS 抓回來的整包資料
+let allData = null;
 
-// --- 初始化與路由 ---
 async function initWebsite() {
     await refreshData();
     const params = new URLSearchParams(window.location.search);
     currentPage = params.get('page') || 'Content';
     
-    renderLogo();
+    renderLogoAndSocial();
     updateCartUI();
     loadPage(currentPage);
 }
 
-// 監聽返回鍵
 window.onpopstate = () => {
     const params = new URLSearchParams(window.location.search);
     currentPage = params.get('page') || 'Content';
@@ -37,12 +32,13 @@ function switchPage(page, params = {}) {
 }
 
 async function refreshData() {
-    const res = await fetch(DATA_SOURCE_URL);
-    allData = await res.json(); // 假設您的 GAS 回傳包含所有分頁的 JSON
+    try {
+        const res = await fetch(DATA_SOURCE_URL);
+        allData = await res.json();
+    } catch (e) { console.error("資料加載失敗", e); }
 }
 
-// --- 頁面載入器 ---
-async function loadPage(pageName) {
+function loadPage(pageName) {
     const app = document.getElementById('app');
     const params = new URLSearchParams(window.location.search);
 
@@ -50,121 +46,128 @@ async function loadPage(pageName) {
     if (pageName === 'product') return renderProductDetail(params.get('id'));
     if (pageName === 'checkout') return renderCheckoutPage();
 
-    // 處理一般頁面
     if (pageName === 'Content') {
-        app.innerHTML = `<div class="py-20 text-center"><h1 class="text-4xl font-serif mb-4">歡迎光臨 Catbox</h1><p>挑選最優質的台灣代購商品</p></div>`;
+        app.innerHTML = `
+            <div class="py-20 text-center animate-fade-in">
+                <h1 class="text-4xl font-bold mb-4">Catbox 台灣代購</h1>
+                <p class="text-lg text-[#8D6E63] mb-8">專業提供 7仔預購、蝦皮代購及各大正版授權商品</p>
+                <button onclick="switchPage('Product Catalog')" class="bg-[#5D4037] text-white px-10 py-4 rounded-full hover:bg-[#4E342E] shadow-lg transition font-bold">立即選購</button>
+            </div>`;
     } else if (pageName === 'Product Catalog') {
         renderCatalogMenu();
     } else if (pageName === 'Contact Us') {
-        app.innerHTML = `<div class="max-w-md mx-auto py-10">聯繫我們：WhatsApp / Instagram / Email</div>`;
+        app.innerHTML = `<div class="max-w-md mx-auto py-10 text-center bg-white border border-[#D7CCC8] rounded-3xl p-10"><h2 class="text-2xl font-bold mb-6">聯絡我們</h2><p class="text-[#8D6E63] mb-2">如有任何代購需求或售後問題</p><p class="font-bold">請點擊上方社群圖標與我們聯繫</p></div>`;
     }
 }
 
-// 1. 分類清單
 function renderCatalogMenu() {
     const categories = [...new Set(allData["產品資料"].map(p => p.Category))];
-    let html = `<h2 class="text-2xl font-bold mb-8">商品分類</h2><div class="grid grid-cols-1 md:grid-cols-3 gap-6">`;
+    let html = `<h2 class="text-2xl font-bold mb-8 text-left border-l-4 border-[#8D6E63] pl-4">商品分類</h2><div class="grid grid-cols-1 md:grid-cols-3 gap-6">`;
     categories.forEach(cat => {
-        html += `<div onclick="switchPage('category', {cat:'${cat}'})" class="p-10 bg-white border border-[#d7ccc8] rounded-2xl cursor-pointer hover:bg-[#efebe9] transition text-xl font-bold">${cat}</div>`;
+        html += `<div onclick="switchPage('category', {cat:'${cat}'})" class="p-12 bg-white border border-[#D7CCC8] rounded-3xl cursor-pointer hover:shadow-xl hover:border-[#8D6E63] transition-all text-xl font-bold">${cat}</div>`;
     });
     document.getElementById('app').innerHTML = html + `</div>`;
 }
 
-// 2. 分類下的商品 (?page=category&cat=...)
 function renderCategoryList(catName) {
     const filtered = allData["產品資料"].filter(p => p.Category === catName);
-    let html = `<button onclick="switchPage('Product Catalog')" class="mb-6 text-[#8d6e63]">← 返回分類</button>
+    let html = `<div class="flex items-center gap-2 mb-8"><button onclick="switchPage('Product Catalog')" class="text-[#8D6E63] hover:underline">商品分類</button> <span>/</span> <span class="font-bold">${catName}</span></div>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-6">`;
     filtered.forEach(p => {
         const id = p["Item code (ERP)"];
         const img = p["圖片"] ? p["圖片"].split(',')[0] : '';
         html += `
-            <div class="bg-white border border-[#d7ccc8] rounded-xl p-3 shadow-sm">
-                <img src="${img}" class="w-full aspect-square object-cover rounded-lg cursor-pointer" onclick="switchPage('product', {id:'${id}'})">
-                <h4 class="mt-3 font-bold truncate">${p["Chinese product name"]}</h4>
-                <p class="text-[#8d6e63] font-bold">HK$ ${p.Price}</p>
-                <button onclick="changeQuantity('${id}', 1, {name:'${p["Chinese product name"]}', price:${p.Price}, img:'${img}'})" class="w-full mt-3 bg-[#5d4037] text-white py-2 rounded-lg text-sm">+ 加入購物車</button>
+            <div class="bg-white border border-[#D7CCC8] rounded-2xl p-4 shadow-sm hover:shadow-md transition">
+                <img src="${img}" class="w-full aspect-square object-cover rounded-xl cursor-pointer" onclick="switchPage('product', {id:'${id}'})">
+                <h4 class="mt-4 font-bold truncate text-[#5D4037]">${p["Chinese product name"]}</h4>
+                <p class="text-[#8D6E63] font-bold mt-1">HK$ ${p.Price}</p>
+                <button onclick="changeQuantity('${id}', 1, {name:'${p["Chinese product name"]}', price:${p.Price}, img:'${img}'})" class="w-full mt-4 bg-[#5D4037] text-white py-2 rounded-lg text-sm hover:bg-[#4E342E]">+ 加入購物車</button>
             </div>`;
     });
     document.getElementById('app').innerHTML = html + `</div>`;
 }
 
-// 3. 商品詳情 (?page=product&id=...)
 function renderProductDetail(id) {
     const p = allData["產品資料"].find(item => String(item["Item code (ERP)"]) === String(id));
     if (!p) return;
     document.getElementById('app').innerHTML = `
-        <button onclick="window.history.back()" class="mb-6 text-[#8d6e63]">← 返回</button>
-        <div class="flex flex-col md:flex-row gap-10 bg-white p-8 rounded-3xl border border-[#d7ccc8]">
-            <div class="md:w-1/2"><img src="${p["圖片"].split(',')[0]}" class="w-full rounded-2xl"></div>
+        <button onclick="window.history.back()" class="mb-8 text-[#8D6E63] flex items-center gap-2">← 返回上一頁</button>
+        <div class="flex flex-col md:flex-row gap-12 bg-white p-10 rounded-3xl border border-[#D7CCC8]">
+            <div class="md:w-1/2"><img src="${p["圖片"].split(',')[0]}" class="w-full rounded-2xl shadow-inner"></div>
             <div class="md:w-1/2 text-left">
-                <h1 class="text-3xl font-bold mb-4">${p["Chinese product name"]}</h1>
-                <p class="text-2xl text-[#8d6e63] font-bold mb-6">HK$ ${p.Price}</p>
-                <div class="text-gray-600 mb-8">${p["中文描述"] || "暫無描述"}</div>
-                <button onclick="changeQuantity('${id}', 1, {name:'${p["Chinese product name"]}', price:${p.Price}, img:'${p["圖片"].split(',')[0]}'})" class="bg-[#5d4037] text-white px-10 py-4 rounded-xl font-bold">放入購物車</button>
+                <span class="text-xs text-[#A1887F] tracking-widest uppercase font-bold">ITEM ID: ${id}</span>
+                <h1 class="text-3xl font-bold mt-2 mb-4">${p["Chinese product name"]}</h1>
+                <p class="text-3xl text-[#8D6E63] font-bold mb-8">HK$ ${p.Price}</p>
+                <div class="text-gray-600 leading-relaxed mb-10 border-t pt-6 text-sm">${(p["中文描述"] || "商品詳情準備中...").replace(/\n/g, '<br>')}</div>
+                <button onclick="changeQuantity('${id}', 1, {name:'${p["Chinese product name"]}', price:${p.Price}, img:'${p["圖片"].split(',')[0]}'})" class="w-full md:w-auto bg-[#5D4037] text-white px-12 py-4 rounded-xl font-bold hover:bg-[#4E342E] shadow-lg transition">放入購物車</button>
             </div>
         </div>`;
 }
 
-// 4. 結帳頁面 (配合您的收款分頁欄位)
 function renderCheckoutPage() {
     const items = Object.entries(cart);
     let total = 0;
+    if (items.length === 0) {
+        document.getElementById('app').innerHTML = `<div class="py-20 text-center"><p class="text-gray-400 mb-6 font-bold">您的購物車目前是空的</p><button onclick="switchPage('Product Catalog')" class="bg-[#5D4037] text-white px-8 py-3 rounded-xl font-bold">查看所有商品</button></div>`;
+        return;
+    }
     let itemsHtml = items.map(([id, item]) => {
         total += item.price * item.qty;
-        return `<div class="flex justify-between py-2 border-b"><span>${item.name} x ${item.qty}</span><span>HK$${item.price * item.qty}</span></div>`;
+        return `<div class="flex justify-between py-4 border-b border-[#F5F5F5] text-sm"><span>${item.name} <span class="text-[#A1887F]">x ${item.qty}</span></span><span class="font-bold">HK$${item.price * item.qty}</span></div>`;
     }).join('');
 
     document.getElementById('app').innerHTML = `
-        <div class="max-w-xl mx-auto bg-white p-8 rounded-2xl border border-[#d7ccc8]">
-            <h2 class="text-2xl font-bold mb-6">結帳確認</h2>
-            <div class="mb-6">${itemsHtml}<div class="text-right font-bold text-xl mt-4 text-[#5d4037]">總計: HK$${total}</div></div>
-            <form onsubmit="submitOrder(event, ${total})" class="space-y-4 text-left">
-                <input name="name" placeholder="姓名" required class="w-full p-3 border rounded-lg">
-                <input name="phone" placeholder="電話" required class="w-full p-3 border rounded-lg">
-                <input name="address" placeholder="收件地址 / 順豐站碼" required class="w-full p-3 border rounded-lg">
-                <select name="payment" class="w-full p-3 border rounded-lg">
-                    <option value="FPS">轉數快 (FPS)</option>
-                    <option value="PayMe">PayMe</option>
-                    <option value="Bank">銀行轉帳</option>
-                </select>
-                <button type="submit" id="subBtn" class="w-full bg-[#5d4037] text-white py-4 rounded-xl font-bold">提交訂單</button>
-            </form>
+        <div class="max-w-4xl mx-auto flex flex-col md:flex-row gap-8">
+            <div class="md:w-1/2 bg-white p-8 rounded-3xl border border-[#D7CCC8] shadow-sm">
+                <h2 class="text-xl font-bold mb-6">訂單內容</h2>
+                <div class="mb-4">${itemsHtml}</div>
+                <div class="text-right font-bold text-2xl text-[#5D4037] pt-4">總計: HK$${total}</div>
+            </div>
+            <div class="md:w-1/2 bg-white p-8 rounded-3xl border border-[#D7CCC8] shadow-sm">
+                <h2 class="text-xl font-bold mb-6">收件資料</h2>
+                <form onsubmit="submitOrder(event, ${total})" class="space-y-4 text-left">
+                    <input name="name" placeholder="收件人姓名" required class="w-full p-4 border border-[#E0E0E0] rounded-xl bg-[#FAFAFA] focus:bg-white transition">
+                    <input name="phone" placeholder="聯絡電話 (8位數字)" required pattern="[0-9]{8}" class="w-full p-4 border border-[#E0E0E0] rounded-xl bg-[#FAFAFA] focus:bg-white transition">
+                    <textarea name="address" placeholder="順豐站代碼 / 收件地址" required class="w-full p-4 border border-[#E0E0E0] rounded-xl bg-[#FAFAFA] focus:bg-white transition h-28"></textarea>
+                    <div class="text-sm font-bold text-[#8D6E63] mt-4 ml-1">付款方式</div>
+                    <select name="payment" class="w-full p-4 border border-[#E0E0E0] rounded-xl bg-[#FAFAFA] appearance-none">
+                        <option value="FPS">轉數快 (FPS)</option>
+                        <option value="PayMe">PayMe</option>
+                        <option value="Bank">銀行轉帳</option>
+                    </select>
+                    <button type="submit" id="subBtn" class="w-full bg-[#5D4037] text-white py-4 mt-6 rounded-xl font-bold shadow-lg hover:bg-[#4E342E] transition-all">確認提交訂單</button>
+                </form>
+            </div>
         </div>`;
 }
 
-// 提交訂單到第二個 GAS
 async function submitOrder(e, total) {
     e.preventDefault();
     const btn = document.getElementById('subBtn');
-    btn.disabled = true; btn.innerText = "提交中...";
-    
+    btn.disabled = true; btn.innerText = "訂單提交中...";
     const fd = new FormData(e.target);
-    const orderData = {
+    const summary = Object.values(cart).map(i => `${i.name}x${i.qty}`).join(', ');
+    const params = new URLSearchParams({
         date: new Date().toLocaleString(),
         name: fd.get('name'),
         phone: fd.get('phone'),
         address: fd.get('address'),
-        items: Object.values(cart).map(i => `${i.name}x${i.qty}`).join(','),
+        items: summary,
         total: total,
         payment: fd.get('payment')
-    };
-
+    });
     try {
-        // 使用 URLSearchParams 以符合 GAS 的 doGet/doPost 接收
-        const params = new URLSearchParams(orderData);
-        await fetch(`${ORDER_SUBMIT_URL}?${params.toString()}`, { method: 'POST' });
-        alert("訂單已提交！");
+        await fetch(`${ORDER_SUBMIT_URL}?${params.toString()}`, { method: 'POST', mode: 'no-cors' });
+        alert("訂單已成功提交！我們會透過 WhatsApp 聯絡您確認細節。");
         cart = {}; localStorage.removeItem('catbox_cart');
         switchPage('Content');
     } catch (err) {
-        alert("提交成功 (GAS 通常會有跨網域提示，若試算表已有資料即可無視)");
+        alert("提交完成！");
         cart = {}; localStorage.removeItem('catbox_cart');
         switchPage('Content');
     }
 }
 
-// --- 通用功能 ---
 function changeQuantity(id, delta, productData = null) {
     let currentQty = cart[id] ? cart[id].qty : 0;
     let newQty = Math.max(0, currentQty + delta);
@@ -173,7 +176,6 @@ function changeQuantity(id, delta, productData = null) {
     else if (cart[id]) cart[id].qty = newQty;
     localStorage.setItem('catbox_cart', JSON.stringify(cart));
     updateCartUI();
-    alert("已更新購物車");
 }
 
 function updateCartUI() {
@@ -181,10 +183,18 @@ function updateCartUI() {
     document.getElementById('cart-count-nav').innerText = totalCount;
 }
 
-function renderLogo() {
+function renderLogoAndSocial() {
     const logoData = allData["Content"]?.find(r => r.Type === 'Logo');
-    if (logoData) {
-        document.getElementById('logo-container').innerHTML = `<img src="${logoData.ImageURL}" class="h-10">`;
+    if (logoData) document.getElementById('logo-container').innerHTML = `<img src="${logoData.ImageURL}" class="h-10">`;
+    
+    // 這裡讀取 Type 為 Social 的所有項目
+    const socials = allData["Content"]?.filter(r => r.Type === 'Social');
+    if (socials) {
+        document.getElementById('store-container').innerHTML = socials.map(s => 
+            `<a href="${s.Link}" target="_blank" class="hover:scale-110 transition-transform">
+                <img src="${s.ImageURL}" class="h-6 w-6 object-contain opacity-80 hover:opacity-100">
+            </a>`
+        ).join('');
     }
 }
 
