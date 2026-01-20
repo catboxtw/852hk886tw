@@ -184,17 +184,23 @@ function updateCartUI() {
 }
 
 function renderLogoAndSocial() {
+    // 1. 處理 Logo (對應 Type 為 Logo)
     const logoData = allData["Content"]?.find(r => r.Type === 'Logo');
-    if (logoData) document.getElementById('logo-container').innerHTML = `<img src="${logoData.ImageURL}" class="h-10">`;
+    if (logoData) {
+        // 這裡確保讀取你的 Image 欄位
+        document.getElementById('logo-container').innerHTML = `<img src="${logoData.Image}" class="h-10 cursor-pointer" onclick="switchPage('Content')">`;
+    }
     
-    // 這裡讀取 Type 為 Social 的所有項目
+    // 2. 處理社群圖標 (對應 Type 為 Social)
     const socials = allData["Content"]?.filter(r => r.Type === 'Social');
-    if (socials) {
+    if (socials && socials.length > 0) {
         document.getElementById('store-container').innerHTML = socials.map(s => 
-            `<a href="${s.Link}" target="_blank" class="hover:scale-110 transition-transform">
-                <img src="${s.ImageURL}" class="h-6 w-6 object-contain opacity-80 hover:opacity-100">
+            `<a href="${s.URLLink}" target="_blank" class="hover:scale-110 transition-transform block">
+                <img src="${s.Image}" class="h-6 w-6 object-contain opacity-80 hover:opacity-100">
             </a>`
         ).join('');
+    } else {
+        console.log("未偵測到 Social 類型的資料，請檢查 Content 分頁的 Type 欄位是否正確");
     }
 }
 
