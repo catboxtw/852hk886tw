@@ -1,49 +1,61 @@
-/* 基礎配色：深啡 #5d4037, 中啡 #8d6e63, 淺啡 #d7ccc8, 背景 #Fdfcfb */
+:root {
+    --primary-brown: #5D4037;
+    --accent-brown: #8D6E63;
+    --light-brown: #D7CCC8;
+    --bg-warm: #FDFCFB;
+}
 
 .nav-fixed {
     position: sticky;
     top: 0;
     z-index: 50;
+    box-shadow: 0 4px 6px -1px rgba(93, 64, 55, 0.05);
 }
 
 .nav-bar-bg {
-    background-color: #5d4037; /* 深啡色導覽列 */
+    background-color: var(--primary-brown);
 }
 
 .nav-item {
-    color: #d7ccc8;
-    font-weight: 600;
-    transition: 0.3s;
+    color: var(--light-brown);
+    font-weight: 700;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
 }
 
-.nav-item:hover, .nav-item.active {
-    color: #ffffff;
-    background-color: #4e342e;
+.nav-item:hover {
+    color: #FFFFFF;
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
-.lang-btn {
-    background-color: #efebe9;
-    color: #5d4037;
-    padding: 4px 12px;
-    border-radius: 99px;
-    font-size: 12px;
-    border: 1px solid #d7ccc8;
+/* 讓社群圖標間距更自然 */
+#store-container {
+    border-right: 1px solid #EFEBE9;
+    padding-right: 1rem;
 }
 
-/* 讓圖片在懸停時有優雅的縮放 */
-img {
-    transition: transform 0.3s ease;
-}
-img:hover {
-    transform: scale(1.02);
+/* 隱藏滾動條 */
+#main-nav::-webkit-scrollbar { display: none; }
+
+/* 載入動畫 */
+.animate-fade-in {
+    animation: fadeIn 0.8s ease-out;
 }
 
-input, select {
-    border: 1px solid #d7ccc8 !important;
-    outline: none;
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-input:focus {
-    border-color: #8d6e63 !important;
-    ring: 1px #8d6e63;
+/* 按鈕點擊效果 */
+button:active {
+    transform: scale(0.98);
+}
+
+/* 下拉選單去掉系統預設外觀以配合啡色調 */
+select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238D6E63'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1.2em;
 }
