@@ -223,7 +223,6 @@ function updateCartUI() {
     if (badge) badge.innerText = count;
 }
 
-// --- 修正後的結帳頁面函數 ---
 function renderCheckoutPage() {
     const items = Object.entries(cart);
     let total = 0;
@@ -234,21 +233,17 @@ function renderCheckoutPage() {
 
     // 1. 自動計算日期邏輯
     const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 是週日, 1-6 是週一至週六
-
-    // 計算本週五 (如果今天是週六，則推算至下週五)
+    const dayOfWeek = now.getDay(); 
     const daysToFriday = (5 - dayOfWeek + 7) % 7;
     const fridayDate = new Date(now);
     fridayDate.setDate(now.getDate() + daysToFriday);
-
-    // 計算下週一 (週五日期再加 3 天)
     const mondayDate = new Date(fridayDate);
     mondayDate.setDate(fridayDate.getDate() + 3);
 
     const payDeadline = `${fridayDate.getMonth() + 1}月${fridayDate.getDate()}日`;
     const shipDate = `${mondayDate.getMonth() + 1}月${mondayDate.getDate()}日`;
 
-    // 2. 計算商品清單
+    // 2. 計算商品清單與原始總額
     let itemsHtml = items.map(([id, item]) => {
         total += item.price * item.qty;
         return `
@@ -257,7 +252,7 @@ function renderCheckoutPage() {
                 <img src="${item.img}" class="w-16 h-16 object-cover rounded-lg">
                 <div class="text-left">
                     <div class="font-bold text-sm text-[#5D4037]">${item.name}</div>
-                    <div class="text-xs text-[#8D6E63]">HK$ ${item.price}</div>
+                    <div class="text-xs text-[#8D6E63]">HK$ ${item.price} x ${item.qty}</div>
                 </div>
             </div>
             <div class="flex items-center gap-3">
@@ -268,38 +263,60 @@ function renderCheckoutPage() {
         </div>`;
     }).join('');
 
-    // 3. 渲染完整 HTML
+    // 3. 折扣邏輯計算
+    let finalTotal = total;
+    let discountHtml = '';
+    const hasDiscount = total >= 200;
+
+    if (hasDiscount) {
+        finalTotal = Math.round(total * 0.9); // 9 折並四捨五入
+        discountHtml = `
+            <div class="text-right pt-4 border-t">
+                <div class="text-gray-400 text-sm line-through">原價: HK$${total}</div>
+                <div class="font-bold text-2xl text-[#5D4037]">折扣後總計: HK$${finalTotal}</div>
+                <div class="text-[#8D6E63] font-bold mt-1 text-sm">✨ 已享用「滿 HK$200 可享 9 折」優惠！</div>
+            </div>`;
+    } else {
+        discountHtml = `
+            <div class="text-right pt-4 border-t">
+                <div class="font-bold text-2xl text-[#5D4037]">總計: HK$${total}</div>
+                <div class="text-[#A1887F] text-sm mt-1 italic">滿 HK$200 可享 9 折優惠 (仲差 HK$${200 - total})</div>
+            </div>`;
+    }
+
+    // 4. 渲染完整 HTML
     document.getElementById('app').innerHTML = `
         <div class="max-w-6xl mx-auto flex flex-col md:flex-row gap-8 text-left">
             <div class="md:w-3/5 space-y-6">
                 <div class="bg-white p-6 md:p-8 rounded-3xl border border-[#D7CCC8] shadow-sm">
                     <h2 class="text-xl font-bold mb-6">購物清單</h2>
                     <div class="mb-4">${itemsHtml}</div>
-                    <div class="text-right pt-4 border-t">
-                        <div class="font-bold text-2xl text-[#5D4037]">總計: HK$${total}</div>
-                        <div class="text-[#8D6E63] font-bold mt-1">滿 HK$200 可享 9 折優惠</div>
-                        <div class="text-xs text-gray-500 mt-4 leading-relaxed">
-                            📌 提交訂單後會以WhatsApp提供付款資訊<br>
-                            請於 <span class="text-[#5D4037] font-bold">${payDeadline} 12:00pm</span> 前付款<br>
-                            📦 貨品預計於 <span class="text-[#5D4037] font-bold">${shipDate}</span> 寄出
-                        </div>
+                    
+                    ${discountHtml}
+
+                    <div class="text-right text-xs text-gray-500 mt-6 leading-relaxed bg-[#FDFBF9] p-4 rounded-xl border border-[#F0EAE6]">
+                        📌 提交訂單後會以WhatsApp提供付款資訊<br>
+                        請於 <span class="text-[#5D4037] font-bold">${payDeadline} 12:00pm</span> 前付款<br>
+                        📦 貨品預計於 <span class="text-[#5D4037] font-bold">${shipDate}</span> 寄出
                     </div>
                 </div>
 
-                <div class="bg-[#FDFBF9] p-6 rounded-3xl border border-[#D7CCC8]">
-                    <h3 class="font-bold text-[#5D4037] mb-3">📝 注意事項</h3>
-                    <div class="text-sm text-gray-600 leading-relaxed space-y-2">
+                <div class="bg-white p-6 rounded-3xl border border-[#D7CCC8] shadow-sm">
+                    <h3 class="font-bold text-[#5D4037] mb-4 flex items-center gap-2">
+                        <span>📝</span> 注意事項
+                    </h3>
+                    <div class="text-sm text-gray-600 leading-relaxed space-y-3">
                         <p>✅ 提交訂單後，我哋會盡快用WhatsApp聯絡客人，並提供付款資料</p>
-                        <p>🕛 逢星期五中午 12 點截單（以我哋收到付款嘅時間為準）</p>
+                        <p>🕛 逢星期五中午 12 點截單（以收到付款時間為準）</p>
                         <p>📦 截單後大約 1-3 個工作天內以順豐到付寄出</p>
-                        <div class="bg-white p-3 rounded-lg border border-[#EFEBE9] my-2 text-xs">
-                            台灣寄香港嘅順豐到付參考價：<br>
-                            • 0.5KG 約 $36 | 1KG 約 $41 | 2KG 約 $75
+                        <div class="bg-[#F9F8F7] p-4 rounded-xl text-xs space-y-1 border-l-4 border-[#D7CCC8]">
+                            <p class="font-bold text-[#5D4037]">台灣寄香港順豐到付參考價：</p>
+                            <p>• 0.5KG 約 $36 | 1KG 約 $41 | 2KG 約 $75</p>
                         </div>
                         <p>✉️ 包裝採用順豐泡泡紙+順豐袋寄出</p>
-                        <p class="text-xs text-gray-400">* 偏遠地區順豐需收取$10附加費（到時順豐會向客人收取）</p>
-                        <p class="text-xs text-gray-400">* 貨品由台灣直接寄到香港客人地址，無面交服務🫶🏻</p>
-                        <p class="font-bold text-[#8D6E63] pt-2">💌 如有問題請 WhatsApp：852-93375712</p>
+                        <p class="text-xs text-gray-400">*偏遠地區順豐需收取$10附加費（到時順豐會向客人收取）</p>
+                        <p class="text-xs text-gray-400">*貨品由台灣直接寄到香港客人地址，無面交服務🫶🏻</p>
+                        <p class="font-bold text-[#8D6E63] pt-2 border-t border-dashed">💌 WhatsApp 聯絡客服：852-93375712</p>
                     </div>
                 </div>
             </div>
@@ -307,22 +324,22 @@ function renderCheckoutPage() {
             <div class="md:w-2/5">
                 <div class="bg-white p-6 md:p-8 rounded-3xl border border-[#D7CCC8] shadow-sm sticky top-24">
                     <h2 class="text-xl font-bold mb-6">收件資料</h2>
-                    <form onsubmit="submitOrder(event, ${total})" class="space-y-4">
+                    <form onsubmit="submitOrder(event, ${finalTotal})" class="space-y-5">
                         <div>
-                            <label class="block text-xs font-bold text-[#8D6E63] mb-1 ml-1">姓名</label>
-                            <input name="name" placeholder="收件人全名" required class="w-full p-4 border rounded-xl bg-[#FAFAFA] focus:border-[#8D6E63] outline-none">
+                            <label class="block text-xs font-bold text-[#8D6E63] mb-2 ml-1">收件人姓名：</label>
+                            <input name="name" placeholder="國際寄件需要至少英文名+姓氏" required class="w-full p-4 border rounded-xl bg-[#FAFAFA] focus:border-[#8D6E63] transition-all outline-none">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-[#8D6E63] mb-1 ml-1">電話（我哋會同時WhatsApp訂單資料到此電話號碼）：</label>
-                            <input name="phone" type="tel" placeholder="例如：91234567" required class="w-full p-4 border rounded-xl bg-[#FAFAFA] focus:border-[#8D6E63] outline-none">
+                            <label class="block text-xs font-bold text-[#8D6E63] mb-2 ml-1">電話（我哋會同時WhatsApp訂單資料到此電話號碼）：</label>
+                            <input name="phone" type="tel" placeholder="請輸入8位數字電話號碼" required class="w-full p-4 border rounded-xl bg-[#FAFAFA] focus:border-[#8D6E63] transition-all outline-none">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-[#8D6E63] mb-1 ml-1">收件地址 / 順豐站碼</label>
-                            <textarea name="address" placeholder="請輸入完整地址或順豐網點編號" required class="w-full p-4 border rounded-xl bg-[#FAFAFA] h-24 focus:border-[#8D6E63] outline-none"></textarea>
+                            <label class="block text-xs font-bold text-[#8D6E63] mb-2 ml-1">順豐站/智能櫃/便利店點碼或收件地址：</label>
+                            <textarea name="address" placeholder="國際寄件可以寄上門唔洗加錢" required class="w-full p-4 border rounded-xl bg-[#FAFAFA] h-24 focus:border-[#8D6E63] transition-all outline-none resize-none"></textarea>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-[#8D6E63] mb-1 ml-1">付款方式</label>
-                            <select name="payment" required class="w-full p-4 border rounded-xl bg-[#FAFAFA] focus:border-[#8D6E63] outline-none appearance-none cursor-pointer">
+                            <label class="block text-xs font-bold text-[#8D6E63] mb-2 ml-1">付款方式</label>
+                            <select name="payment" required class="w-full p-4 border rounded-xl bg-[#FAFAFA] focus:border-[#8D6E63] outline-none cursor-pointer appearance-none">
                                 <option value="" disabled selected>請選擇付款方式</option>
                                 <option value="Payme">Payme</option>
                                 <option value="FPS">FPS</option>
@@ -330,7 +347,9 @@ function renderCheckoutPage() {
                                 <option value="恆生銀行入數">恆生銀行入數</option>
                             </select>
                         </div>
-                        <button type="submit" id="subBtn" class="w-full bg-[#5D4037] text-white py-4 mt-6 rounded-xl font-bold shadow-lg hover:bg-[#4E342E] transition">提交訂單</button>
+                        <button type="submit" id="subBtn" class="w-full bg-[#5D4037] text-white py-4 mt-4 rounded-xl font-bold shadow-lg hover:bg-[#4E342E] transition-all transform active:scale-[0.98]">
+                            確認提交訂單 (HK$${finalTotal})
+                        </button>
                     </form>
                 </div>
             </div>
