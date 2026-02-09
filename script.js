@@ -114,7 +114,18 @@ function loadPage(pageName) {
 
 // 1. 分類選單
 function renderCatalogMenu() {
-    const items = allData["產品資料"] || [];
+    console.log("目前的 allData 內容為:", allData); // 除錯用
+    
+    // 如果 allData 本身就是陣列，就直接用；如果是物件，就抓 ["產品資料"]
+    const items = Array.isArray(allData) ? allData : (allData["產品資料"] || []);
+    
+    if (items.length === 0) {
+        document.getElementById('app').innerHTML = `
+            <div class="py-20 text-center">
+                <p class="text-gray-500">暫時沒有商品資料 (Array is empty)</p>
+            </div>`;
+        return;
+    }
     const categories = [...new Set(items.map(p => p.Category).filter(Boolean))];
     let html = `<h2 class="text-2xl font-bold mb-8 text-[#5D4037] border-l-4 border-[#8D6E63] pl-4">商品分類</h2><div class="grid grid-cols-1 md:grid-cols-3 gap-6">`;
     categories.forEach(cat => {
