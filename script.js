@@ -137,17 +137,32 @@ function renderCatalogMenu() {
 // 2. 某分類下的商品列表
 function renderCategoryList(catName) {
     const products = (allData["產品資料"] || []).filter(p => p.Category === catName);
-    let html = `<div class="mb-8"><button onclick="switchPage('Product Catalog')" class="text-[#8D6E63] hover:underline">← 返回分類</button> <span class="mx-2">/</span> <span class="font-bold">${catName}</span></div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-6">`;
+    let html = `
+        <div class="mb-8 flex items-center gap-4">
+            <button onclick="switchPage('Product Catalog')" class="text-[#8D6E63] hover:underline">← 返回分類</button> 
+            <span class="text-gray-300">/</span> 
+            <span class="font-bold text-[#5D4037]">${catName}</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">`;
+
     products.forEach(p => {
         const id = p["Item code (ERP)"];
         const img = p["圖片"] ? p["圖片"].split(',')[0].trim() : '';
+        
         html += `
-            <div class="bg-white border border-[#D7CCC8] rounded-2xl p-4 shadow-sm hover:shadow-md transition">
-                <img src="${img}" class="w-full aspect-square object-cover rounded-xl cursor-pointer" onclick="switchPage('product', {id:'${id}'})">
-                <h4 class="mt-4 font-bold truncate text-[#5D4037]">${p["Chinese product name"]}</h4>
-                <p class="text-[#8D6E63] font-bold mt-1">HK$ ${p.Price}</p>
-                <button onclick="addToCart('${id}', '${p["Chinese product name"]}', ${p.Price}, '${img}')" class="w-full mt-4 bg-[#5D4037] text-white py-2 rounded-lg text-sm hover:bg-[#4E342E]">+ 加入購物車</button>
+            <div class="bg-white border border-[#D7CCC8] rounded-3xl p-4 shadow-sm hover:shadow-md transition group">
+                <div class="overflow-hidden rounded-2xl mb-4">
+                    <img src="${optimizeCloudinary(img, 400)}" 
+                         class="w-full aspect-square object-cover cursor-pointer group-hover:scale-105 transition-transform duration-500" 
+                         onclick="switchPage('product', {id:'${id}'})">
+                </div>
+                <h4 class="font-bold truncate text-[#5D4037] text-sm md:text-base">${p["Chinese product name"]}</h4>
+                <div class="flex items-center justify-between mt-3">
+                    <p class="text-[#8D6E63] font-bold text-sm">HK$ ${p.Price}</p>
+                    <div id="btn-container-${id}" class="mini-btn">
+                        ${getMiniCartButtonUI(id, p["Chinese product name"], p.Price, img)}
+                    </div>
+                </div>
             </div>`;
     });
     document.getElementById('app').innerHTML = html + `</div>`;
@@ -290,7 +305,7 @@ function renderCheckoutPage() {
                 </div>
             </div>
             <div class="flex items-center gap-3">
-                <button onclick="changeQty('${id}', -1)" class="w-8 h-8 border border-[#D7CCC8] rounded-full flex items-center justify-center hover:bg-gray-50">-</button>
+                <button onclick="updateAllUIQty('${id}', -1)" class="w-8 h-8 border border-[#D7CCC8] rounded-full flex items-center justify-center hover:bg-gray-50">-</button>
                 <span class="w-6 text-center font-medium">${item.qty}</span>
                 <button onclick="changeQty('${id}', 1)" class="w-8 h-8 border border-[#D7CCC8] rounded-full flex items-center justify-center hover:bg-gray-50">+</button>
             </div>
@@ -348,32 +363,43 @@ async function submitOrder(e, total) {
     }
 }
 
-// 全局同步更新 UI 的核心
 function updateAllUIQty(id, delta) {
-    // 1. 更新資料層
-    if (delta !== 0) {
-        if (!cart[id]) return;
-        cart[id].qty += delta;
-        if (cart[id].qty <= 0) delete cart[id];
+    const item = cart[id];
+    
+    // 1. 處理資料更新與確認邏輯
+    if (delta !== 0 && item) {
+        if (item.qty === 1 && delta === -1) {
+            // 數量從 1 變 0 的提示句
+            if (!confirm(`確定要從購物車中移除「${item.name}」嗎？`)) return;
+            delete cart[id];
+        } else {
+            item.qty += delta;
+            if (item.qty <= 0) delete cart[id];
+        }
         localStorage.setItem('catbox_cart', JSON.stringify(cart));
-        updateCartUI(); // 更新 Header 小紅點
+        updateCartUI(); // 更新小紅點
     }
     
-    // 2. 獲取商品資訊
+    // 2. 局部刷新 UI (不跳頁)
     const p = allData["產品資料"].find(item => String(item["Item code (ERP)"]) === String(id));
     if (!p) return;
     const firstImg = p["圖片"] ? p["圖片"].split(',')[0].trim() : '';
 
-    // 3. 找出頁面上所有該商品的容器 (可能有好幾個)
     const containers = document.querySelectorAll(`[id="btn-container-${id}"]`);
     containers.forEach(container => {
-        // 根據 class 判斷要渲染大按鈕還是小按鈕
+        // 根據 class 渲染不同樣式的按鈕
         if (container.classList.contains('detail-btn')) {
             container.innerHTML = getCartButtonUI(id, p["Chinese product name"], p.Price, firstImg);
         } else {
             container.innerHTML = getMiniCartButtonUI(id, p["Chinese product name"], p.Price, firstImg);
         }
     });
+
+    // 3. 如果當前正好在結帳頁面，才需要額外刷新結帳列表
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('page') === 'checkout') {
+        renderCheckoutPage();
+    }
 }
 
 // 修改後的 addToCart
@@ -430,18 +456,6 @@ function getCartButtonUI(id, name, price, img) {
             <span class="px-5 text-[#5D4037] font-bold text-base">${item.qty}</span>
             <button onclick="updateAllUIQty('${id}', 1)" class="w-8 h-8 flex items-center justify-center text-[#5D4037] hover:bg-white rounded-full transition font-bold">+</button>
         </div>`;
-}
-
-// 專門給詳情頁使用的數量更新函數，確保 UI 會同步刷新
-function updateDetailQty(id, delta) {
-    changeQty(id, delta); // 調用原有的邏輯處理資料
-    const p = allData["產品資料"].find(item => String(item["Item code (ERP)"]) === String(id));
-    // 重新渲染按鈕容器
-    const btnContainer = document.getElementById(`btn-container-${id}`);
-    if (btnContainer) {
-        const img = p["圖片"] ? p["圖片"].split(',')[0].trim() : '';
-        btnContainer.innerHTML = getCartButtonUI(id, p["Chinese product name"], p.Price, img);
-    }
 }
 
 function switchPage(page, params = {}) {
