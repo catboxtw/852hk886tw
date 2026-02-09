@@ -5,24 +5,38 @@ let allData = null;
 let cart = JSON.parse(localStorage.getItem('catbox_cart')) || {};
 
 async function initWebsite() {
+    const loader = document.getElementById('loading-screen');
+    
     try {
-        const res = await fetch(DATA_SOURCE_URL);
+        // 設定 10 秒超時，避免 API 沒反應導致頁面永遠卡死
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const res = await fetch(DATA_SOURCE_URL, { signal: controller.signal });
         allData = await res.json();
-        
-        // 隱藏載入畫面
-        const loader = document.getElementById('loading-screen');
-        if(loader) {
-            loader.style.opacity = '0';
-            setTimeout(() => loader.style.display = 'none', 500);
-        }
+        clearTimeout(timeoutId);
+
+        console.log("資料加載成功", allData);
 
         renderLogoAndSocial();
         updateCartUI();
         
         const params = new URLSearchParams(window.location.search);
         loadPage(params.get('page') || 'Content');
+
     } catch (e) {
         console.error("資料加載失敗:", e);
+        // 如果失敗了，至少顯示一個提示，不要讓螢幕空白
+        const app = document.getElementById('app');
+        if(app) app.innerHTML = `<div class="py-20 text-center text-red-500">網路連線不穩定，請重新整理頁面。</div>`;
+    } finally {
+        // 無論成功或失敗，一定要移除 Loading 畫面
+        if(loader) {
+            loader.style.opacity = '0';
+            setTimeout(() => {
+                loader.style.display = 'none';
+            }, 500);
+        }
     }
 }
 
