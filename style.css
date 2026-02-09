@@ -41,10 +41,16 @@
     transform: translateY(-5px);
 }
 
+/* 隱藏滾動條但保持滾動功能 */
 .scrollbar-hide::-webkit-scrollbar {
     display: none;
 }
 .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
+}
+
+/* 按鈕過渡效果 */
+#btn-container-[id] button {
+    transition: all 0.2s ease-in-out;
 }
