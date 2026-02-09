@@ -157,18 +157,61 @@ function renderCategoryList(catName) {
 function renderProductDetail(id) {
     const p = allData["產品資料"].find(item => String(item["Item code (ERP)"]) === String(id));
     if (!p) return;
-    const img = p["圖片"] ? p["圖片"].split(',')[0].trim() : '';
-    document.getElementById('app').innerHTML = `
-        <button onclick="window.history.back()" class="mb-8 text-[#8D6E63] flex items-center gap-2">← 返回</button>
-        <div class="flex flex-col md:flex-row gap-12 bg-white p-6 md:p-10 rounded-3xl border border-[#D7CCC8]">
-            <div class="md:w-1/2"><img src="${img}" class="w-full rounded-2xl shadow-inner"></div>
-            <div class="md:w-1/2 text-left">
-                <h1 class="text-3xl font-bold mt-2 mb-4 text-[#5D4037]">${p["Chinese product name"]}</h1>
-                <p class="text-3xl text-[#8D6E63] font-bold mb-8">HK$ ${p.Price}</p>
-                <div class="text-gray-600 text-sm leading-relaxed mb-10 border-t pt-6">${(p["中文描述"] || "商品詳情準備中...").replace(/\n/g, '<br>')}</div>
-                <button onclick="addToCart('${id}', '${p["Chinese product name"]}', ${p.Price}, '${img}')" class="w-full md:w-auto bg-[#5D4037] text-white px-12 py-4 rounded-xl font-bold shadow-lg">放入購物車</button>
+
+    // 解析圖片欄位：將字串轉為陣列，並去除多餘空格
+    // 假設 E 欄在 JSON 中的鍵名是 "圖片" (請根據你的 Excel 標題修改)
+    const rawImages = p["圖片"] || ""; 
+    const imageList = rawImages.split(',').map(img => img.trim()).filter(img => img !== "");
+    
+    // 預設主圖為第一張，如果沒圖則用佔位圖
+    const mainImg = imageList.length > 0 ? imageList[0] : 'https://placehold.co/600x600?text=No+Image';
+
+    let html = `
+        <button onclick="window.history.back()" class="mb-8 text-[#8D6E63] flex items-center gap-2 hover:translate-x-[-4px] transition-transform">
+            ← 返回
+        </button>
+        
+        <div class="flex flex-col md:flex-row gap-12 bg-white p-6 md:p-10 rounded-3xl border border-[#D7CCC8] shadow-sm">
+            <div class="md:w-1/2">
+                <div class="main-image-container mb-4 overflow-hidden rounded-2xl bg-[#F9F8F7]">
+                    <img id="main-display-img" src="${mainImg}" class="w-full aspect-square object-cover shadow-inner transition-opacity duration-300">
+                </div>
+                
+                ${imageList.length > 1 ? `
+                <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                    ${imageList.map((img, idx) => `
+                        <img src="${img}" 
+                             onclick="document.getElementById('main-display-img').src='${img}'"
+                             class="w-20 h-20 object-cover rounded-lg cursor-pointer border-2 border-transparent hover:border-[#8D6E63] focus:border-[#8D6E63] transition-all flex-shrink-0 bg-gray-50"
+                             alt="商品圖 ${idx + 1}">
+                    `).join('')}
+                </div>
+                ` : ''}
             </div>
-        </div>`;
+
+            <div class="md:w-1/2 text-left flex flex-col">
+                <div class="flex-grow">
+                    <span class="text-xs font-bold tracking-widest text-[#A1887F] uppercase">${p.Category || ''}</span>
+                    <h1 class="text-3xl font-bold mt-2 mb-4 text-[#5D4037] leading-tight">${p["Chinese product name"]}</h1>
+                    <p class="text-3xl text-[#8D6E63] font-bold mb-8 italic">HK$ ${p.Price}</p>
+                    
+                    <div class="border-t pt-6">
+                        <h3 class="text-sm font-bold text-[#5D4037] mb-3">商品描述</h3>
+                        <div class="text-gray-600 text-sm leading-relaxed mb-10">
+                            ${(p["中文描述"] || "商品詳情準備中...").replace(/\n/g, '<br>')}
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="addToCart('${id}', '${p["Chinese product name"]}', ${p.Price}, '${mainImg}')" 
+                        class="w-full bg-[#5D4037] text-white px-12 py-4 rounded-xl font-bold shadow-lg hover:bg-[#4E342E] active:scale-95 transition-all">
+                    放入購物車
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('app').innerHTML = html;
 }
 
 // 4. 結帳頁面 (Checkout)
