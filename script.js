@@ -153,18 +153,22 @@ function renderCategoryList(catName) {
     document.getElementById('app').innerHTML = html + `</div>`;
 }
 
+// 輔助函數：優化 Cloudinary 網址 (提升讀取速度)
+function optimizeCloudinary(url, width = 800) {
+    if (!url || !url.includes('cloudinary.com')) return url;
+    return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
+}
+
 // 3. 商品詳情頁
 function renderProductDetail(id) {
     const p = allData["產品資料"].find(item => String(item["Item code (ERP)"]) === String(id));
     if (!p) return;
 
-    // 解析圖片欄位：將字串轉為陣列，並去除多餘空格
-    // 假設 E 欄在 JSON 中的鍵名是 "圖片" (請根據你的 Excel 標題修改)
     const rawImages = p["圖片"] || ""; 
     const imageList = rawImages.split(',').map(img => img.trim()).filter(img => img !== "");
     
-    // 預設主圖為第一張，如果沒圖則用佔位圖
-    const mainImg = imageList.length > 0 ? imageList[0] : 'https://placehold.co/600x600?text=No+Image';
+    // 第一張圖作為預設主圖
+    const firstImg = imageList.length > 0 ? imageList[0] : 'https://placehold.co/600x600?text=No+Image';
 
     let html = `
         <button onclick="window.history.back()" class="mb-8 text-[#8D6E63] flex items-center gap-2 hover:translate-x-[-4px] transition-transform">
@@ -174,16 +178,16 @@ function renderProductDetail(id) {
         <div class="flex flex-col md:flex-row gap-12 bg-white p-6 md:p-10 rounded-3xl border border-[#D7CCC8] shadow-sm">
             <div class="md:w-1/2">
                 <div class="main-image-container mb-4 overflow-hidden rounded-2xl bg-[#F9F8F7]">
-                    <img id="main-display-img" src="${mainImg}" class="w-full aspect-square object-cover shadow-inner transition-opacity duration-300">
+                    <img id="main-display-img" src="${optimizeCloudinary(firstImg, 800)}" 
+                         class="w-full aspect-square object-cover shadow-inner transition-opacity duration-300">
                 </div>
                 
                 ${imageList.length > 1 ? `
                 <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                     ${imageList.map((img, idx) => `
-                        <img src="${img}" 
-                             onclick="document.getElementById('main-display-img').src='${img}'"
-                             class="w-20 h-20 object-cover rounded-lg cursor-pointer border-2 border-transparent hover:border-[#8D6E63] focus:border-[#8D6E63] transition-all flex-shrink-0 bg-gray-50"
-                             alt="商品圖 ${idx + 1}">
+                        <img src="${optimizeCloudinary(img, 200)}" 
+                             onclick="document.getElementById('main-display-img').src='${optimizeCloudinary(img, 800)}'"
+                             class="w-20 h-20 object-cover rounded-lg cursor-pointer border-2 border-transparent hover:border-[#8D6E63] focus:border-[#8D6E63] transition-all flex-shrink-0 bg-gray-50">
                     `).join('')}
                 </div>
                 ` : ''}
@@ -203,10 +207,9 @@ function renderProductDetail(id) {
                     </div>
                 </div>
 
-                <button onclick="addToCart('${id}', '${p["Chinese product name"]}', ${p.Price}, '${mainImg}')" 
-                        class="w-full bg-[#5D4037] text-white px-12 py-4 rounded-xl font-bold shadow-lg hover:bg-[#4E342E] active:scale-95 transition-all">
-                    放入購物車
-                </button>
+                <div id="btn-container-${id}">
+                    ${getCartButtonUI(id, p["Chinese product name"], p.Price, firstImg)}
+                </div>
             </div>
         </div>
     `;
@@ -299,9 +302,15 @@ async function submitOrder(e, total) {
 function addToCart(id, name, price, img) {
     if (cart[id]) cart[id].qty += 1;
     else cart[id] = { name, price, img, qty: 1 };
+    
     localStorage.setItem('catbox_cart', JSON.stringify(cart));
     updateCartUI();
-    alert("已加入購物車！");
+    
+    // 立即更新詳情頁的按鈕
+    const btnContainer = document.getElementById(`btn-container-${id}`);
+    if (btnContainer) {
+        btnContainer.innerHTML = getCartButtonUI(id, name, price, img);
+    }
 }
 
 function changeQty(id, delta) {
@@ -325,6 +334,43 @@ function changeQty(id, delta) {
 function updateCartUI() {
     const count = Object.values(cart).reduce((sum, item) => sum + item.qty, 0);
     document.getElementById('cart-count-nav').innerText = count;
+}
+
+// 取得按鈕 HTML 的輔助函數
+function getCartButtonUI(id, name, price, img) {
+    const item = cart[id];
+    
+    // 如果購物車內沒有此商品
+    if (!item) {
+        return `
+            <button onclick="addToCart('${id}', '${name}', ${price}, '${img}')" 
+                    class="w-full bg-[#5D4037] text-white px-12 py-4 rounded-xl font-bold shadow-lg hover:bg-[#4E342E] transition-all active:scale-95">
+                放入購物車
+            </button>`;
+    }
+
+    // 如果已經在購物車，顯示「數量控制器」
+    return `
+        <div class="flex items-center justify-between bg-[#EFEBE9] rounded-xl p-1 border border-[#D7CCC8]">
+            <button onclick="updateDetailQty('${id}', -1)" class="px-6 py-4 text-[#5D4037] font-bold text-xl hover:bg-[#D7CCC8] rounded-l-xl transition">-</button>
+            <div class="flex flex-col items-center">
+                <span class="text-[#5D4037] font-bold">${item.qty}</span>
+                <span class="text-[10px] text-[#8D6E63]">已加入購物車</span>
+            </div>
+            <button onclick="updateDetailQty('${id}', 1)" class="px-6 py-4 text-[#5D4037] font-bold text-xl hover:bg-[#D7CCC8] rounded-r-xl transition">+</button>
+        </div>`;
+}
+
+// 專門給詳情頁使用的數量更新函數，確保 UI 會同步刷新
+function updateDetailQty(id, delta) {
+    changeQty(id, delta); // 調用原有的邏輯處理資料
+    const p = allData["產品資料"].find(item => String(item["Item code (ERP)"]) === String(id));
+    // 重新渲染按鈕容器
+    const btnContainer = document.getElementById(`btn-container-${id}`);
+    if (btnContainer) {
+        const img = p["圖片"] ? p["圖片"].split(',')[0].trim() : '';
+        btnContainer.innerHTML = getCartButtonUI(id, p["Chinese product name"], p.Price, img);
+    }
 }
 
 function switchPage(page, params = {}) {
