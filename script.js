@@ -50,18 +50,6 @@ async function initWebsite() {
     }
 }
 
-function renderCatalogMenu() {
-    // 增加防錯處理：如果 allData 或 產品資料 是空的，不要執行 .map
-    const items = (allData && allData["產品資料"]) || [];
-    if (items.length === 0) {
-        document.getElementById('app').innerHTML = `<div class="py-20 text-center">暫無商品資料</div>`;
-        return;
-    }
-    
-    const categories = [...new Set(items.map(p => p.Category).filter(Boolean))];
-    // ... 後續原有的渲染代碼 ...
-}
-
 // 渲染 Header
 function renderLogoAndSocial() {
     const logoContainer = document.getElementById('logo-container');
@@ -114,16 +102,9 @@ function loadPage(pageName) {
 
 // 1. 分類選單
 function renderCatalogMenu() {
-    console.log("目前的 allData 內容為:", allData); // 除錯用
-    
-    // 如果 allData 本身就是陣列，就直接用；如果是物件，就抓 ["產品資料"]
-    const items = Array.isArray(allData) ? allData : (allData["產品資料"] || []);
-    
+    const items = (allData && allData["產品資料"]) || [];
     if (items.length === 0) {
-        document.getElementById('app').innerHTML = `
-            <div class="py-20 text-center">
-                <p class="text-gray-500">暫時沒有商品資料 (Array is empty)</p>
-            </div>`;
+        document.getElementById('app').innerHTML = `<div class="py-20 text-center text-gray-500">暫無商品資料</div>`;
         return;
     }
     const categories = [...new Set(items.map(p => p.Category).filter(Boolean))];
@@ -134,6 +115,7 @@ function renderCatalogMenu() {
     document.getElementById('app').innerHTML = html + `</div>`;
 }
 
+// 2. 分類商品列表 (優化版)
 function renderCategoryList(catName) {
     const products = (allData["產品資料"] || []).filter(p => p.Category === catName);
     let html = `
@@ -147,7 +129,6 @@ function renderCategoryList(catName) {
     products.forEach(p => {
         const id = p["Item code (ERP)"];
         const img = p["圖片"] ? p["圖片"].split(',')[0].trim() : '';
-        // 列表頁只需要 400px 的優化圖，速度極快
         const thumbImg = optimizeCloudinary(img, 400);
         const placeholderImg = optimizeCloudinary(img, 50, true);
         
@@ -155,8 +136,7 @@ function renderCategoryList(catName) {
             <div class="bg-white border border-[#D7CCC8] rounded-3xl p-4 shadow-sm hover:shadow-md transition group">
                 <div class="overflow-hidden rounded-2xl mb-4 bg-[#F9F8F7] relative aspect-square">
                     <img src="${placeholderImg}" class="w-full h-full object-cover absolute inset-0 blur-lg scale-110">
-                    <img src="${thumbImg}" 
-                         loading="lazy"
+                    <img src="${thumbImg}" loading="lazy"
                          class="w-full h-full object-cover relative z-10 cursor-pointer group-hover:scale-105 transition-all duration-500 opacity-0"
                          onload="this.classList.remove('opacity-0'); this.classList.add('opacity-100')"
                          onclick="switchPage('product', {id:'${id}'})">
@@ -221,16 +201,16 @@ function getMiniCartButtonUI(id, name, price, img) {
     }
     return `
         <div class="flex items-center bg-[#F8F5F4] rounded-full border border-[#D7CCC8] p-0.5 shadow-sm">
-            <button onclick="updateAllUIQty('${id}', -1)" class="w-7 h-7 flex items-center justify-center text-[#5D4037] hover:bg-white rounded-full text-xs font-bold">-</button>
+            <button onclick="handleQtyChange('${id}', -1)" class="w-7 h-7 flex items-center justify-center text-[#5D4037] hover:bg-white rounded-full text-xs font-bold">-</button>
             <span class="px-2 text-[#5D4037] font-bold text-xs">${item.qty}</span>
-            <button onclick="updateAllUIQty('${id}', 1)" class="w-7 h-7 flex items-center justify-center text-[#5D4037] hover:bg-white rounded-full text-xs font-bold">+</button>
+            <button onclick="handleQtyChange('${id}', 1)" class="w-7 h-7 flex items-center justify-center text-[#5D4037] hover:bg-white rounded-full text-xs font-bold">+</button>
         </div>`;
 }
 
 // 輔助函數：優化 Cloudinary 網址 (提升讀取速度)
 function optimizeCloudinary(url, width = 800, blur = false) {
     if (!url || !url.includes('cloudinary.com')) return url;
-    // 如果是 blur 模式，我們要求一張極小(50px)且模糊的圖
+    // f_auto: 自動選擇格式(WebP/AVIF), q_auto: 自動壓縮品質
     const params = blur ? `f_auto,q_auto,w_50,e_blur:1000` : `f_auto,q_auto,w_${width}`;
     return url.replace('/upload/', `/upload/${params}/`);
 }
@@ -302,6 +282,72 @@ function renderProductDetail(id) {
     document.getElementById('app').innerHTML = html;
 }
 
+// 統一處理所有的數量變更 (不跳頁、不卡頓)
+function handleQtyChange(id, delta) {
+    const item = cart[id];
+    if (!item && delta <= 0) return;
+
+    // 1. 處理資料層
+    if (item) {
+        if (item.qty === 1 && delta === -1) {
+            // 手機版 confirm 必須小心處理
+            const confirmRemove = confirm(`確定要從購物車中移除「${item.name}」嗎？`);
+            if (!confirmRemove) return;
+            delete cart[id];
+        } else {
+            item.qty += delta;
+            if (item.qty <= 0) delete cart[id];
+        }
+    } else if (delta > 0) {
+        // 如果購物車沒這件貨，則是新增（通常從 addToCart 觸發）
+        const p = allData["產品資料"].find(i => String(i["Item code (ERP)"]) === String(id));
+        if (p) {
+            const firstImg = p["圖片"] ? p["圖片"].split(',')[0].trim() : '';
+            cart[id] = { 
+                name: p["Chinese product name"], 
+                price: p.Price, 
+                img: firstImg, 
+                qty: 1 
+            };
+        }
+    }
+
+    // 2. 儲存至本地
+    localStorage.setItem('catbox_cart', JSON.stringify(cart));
+    
+    // 3. 同步更新所有 UI 零件
+    updateCartUI(); // 更新導航欄小紅點
+    refreshProductButtons(id); // 刷新當前頁面所有該商品的按鈕
+    
+    // 4. 如果在結帳頁，才刷新結帳列表
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('page') === 'checkout') {
+        renderCheckoutPage();
+    }
+}
+
+// 專門負責刷新按鈕 HTML 的輔助函數
+function refreshProductButtons(id) {
+    const containers = document.querySelectorAll(`[id="btn-container-${id}"]`);
+    const p = allData["產品資料"].find(item => String(item["Item code (ERP)"]) === String(id));
+    if (!p) return;
+    const img = p["圖片"] ? p["圖片"].split(',')[0].trim() : '';
+
+    containers.forEach(container => {
+        if (container.classList.contains('detail-btn')) {
+            container.innerHTML = getCartButtonUI(id, p["Chinese product name"], p.Price, img);
+        } else {
+            container.innerHTML = getMiniCartButtonUI(id, p["Chinese product name"], p.Price, img);
+        }
+    });
+}
+
+// 簡化 addToCart，直接調用 handleQtyChange
+function addToCart(id) {
+    handleQtyChange(id, 1);
+}
+
+// 同理，將按鈕 UI 中的 onclick 全部改為 handleQtyChange
 // 4. 結帳頁面 (Checkout)
 function renderCheckoutPage() {
     const items = Object.entries(cart);
@@ -325,10 +371,10 @@ function renderCheckoutPage() {
                 </div>
             </div>
             <div class="flex items-center gap-3">
-                <button onclick="updateAllUIQty('${id}', -1)" class="w-8 h-8 border border-[#D7CCC8] rounded-full flex items-center justify-center hover:bg-gray-50">-</button>
-                <span class="w-6 text-center font-medium">${item.qty}</span>
-                <button onclick="changeQty('${id}', 1)" class="w-8 h-8 border border-[#D7CCC8] rounded-full flex items-center justify-center hover:bg-gray-50">+</button>
-            </div>
+                // 新的 (統一使用 handleQtyChange)
+<button onclick="handleQtyChange('${id}', -1)" class="w-8 h-8 border border-[#D7CCC8] rounded-full flex items-center justify-center hover:bg-gray-50">-</button>
+<span class="w-6 text-center font-medium">${item.qty}</span>
+<button onclick="handleQtyChange('${id}', 1)" class="w-8 h-8 border border-[#D7CCC8] rounded-full flex items-center justify-center hover:bg-gray-50">+</button>            </div>
         </div>`;
     }).join('');
 
@@ -383,77 +429,6 @@ async function submitOrder(e, total) {
     }
 }
 
-function updateAllUIQty(id, delta) {
-    const item = cart[id];
-    
-    // 1. 處理資料更新與確認邏輯
-    if (delta !== 0 && item) {
-        if (item.qty === 1 && delta === -1) {
-            // 數量從 1 變 0 的提示句
-            if (!confirm(`確定要從購物車中移除「${item.name}」嗎？`)) return;
-            delete cart[id];
-        } else {
-            item.qty += delta;
-            if (item.qty <= 0) delete cart[id];
-        }
-        localStorage.setItem('catbox_cart', JSON.stringify(cart));
-        updateCartUI(); // 更新小紅點
-    }
-    
-    // 2. 局部刷新 UI (不跳頁)
-    const p = allData["產品資料"].find(item => String(item["Item code (ERP)"]) === String(id));
-    if (!p) return;
-    const firstImg = p["圖片"] ? p["圖片"].split(',')[0].trim() : '';
-
-    const containers = document.querySelectorAll(`[id="btn-container-${id}"]`);
-    containers.forEach(container => {
-        // 根據 class 渲染不同樣式的按鈕
-        if (container.classList.contains('detail-btn')) {
-            container.innerHTML = getCartButtonUI(id, p["Chinese product name"], p.Price, firstImg);
-        } else {
-            container.innerHTML = getMiniCartButtonUI(id, p["Chinese product name"], p.Price, firstImg);
-        }
-    });
-
-    // 3. 如果當前正好在結帳頁面，才需要額外刷新結帳列表
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('page') === 'checkout') {
-        renderCheckoutPage();
-    }
-}
-
-// 修改後的 addToCart
-function addToCart(id, name, price, img) {
-    if (cart[id]) {
-        cart[id].qty += 1;
-    } else {
-        cart[id] = { name, price, img, qty: 1 };
-    }
-    localStorage.setItem('catbox_cart', JSON.stringify(cart));
-    updateCartUI();
-    
-    // 執行局部 UI 更新，絕不跳頁
-    updateAllUIQty(id, 0);
-}
-
-function changeQty(id, delta) {
-    if (cart[id].qty === 1 && delta === -1) {
-        // 當數量為 1 且用戶點擊減號時，跳出提醒
-        if (confirm(`確定要從購物車中移除「${cart[id].name}」嗎？`)) {
-            delete cart[id];
-        } else {
-            return; // 使用者按取消，則不動作
-        }
-    } else {
-        cart[id].qty += delta;
-        if (cart[id].qty <= 0) delete cart[id];
-    }
-    
-    localStorage.setItem('catbox_cart', JSON.stringify(cart));
-    updateCartUI();
-    renderCheckoutPage(); // 重新渲染結帳頁面
-}
-
 function updateCartUI() {
     const count = Object.values(cart).reduce((sum, item) => sum + item.qty, 0);
     document.getElementById('cart-count-nav').innerText = count;
@@ -472,9 +447,9 @@ function getCartButtonUI(id, name, price, img) {
 
     return `
         <div class="flex items-center bg-[#F8F5F4] rounded-full border border-[#D7CCC8] p-1 shadow-inner">
-            <button onclick="updateAllUIQty('${id}', -1)" class="w-8 h-8 flex items-center justify-center text-[#5D4037] hover:bg-white rounded-full transition font-bold">-</button>
+            <button onclick="handleQtyChange('${id}', -1)" class="w-8 h-8 flex items-center justify-center text-[#5D4037] hover:bg-white rounded-full transition font-bold">-</button>
             <span class="px-5 text-[#5D4037] font-bold text-base">${item.qty}</span>
-            <button onclick="updateAllUIQty('${id}', 1)" class="w-8 h-8 flex items-center justify-center text-[#5D4037] hover:bg-white rounded-full transition font-bold">+</button>
+            <button onclick="handleQtyChange('${id}', 1)" class="w-8 h-8 flex items-center justify-center text-[#5D4037] hover:bg-white rounded-full transition font-bold">+</button>
         </div>`;
 }
 
