@@ -4,6 +4,7 @@
     --light-brown: #D7CCC8;
 }
 
+/* 導航欄與背景 */
 .nav-fixed {
     position: sticky;
     top: 0;
@@ -11,46 +12,48 @@
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
 }
-
-.nav-bar-bg {
-    background-color: var(--primary-brown);
-}
-
+.nav-bar-bg { background-color: var(--primary-brown); }
 .nav-item {
     color: var(--light-brown);
     font-weight: 600;
     transition: 0.3s;
 }
+.nav-item:hover { color: #FFF; }
 
-.nav-item:hover {
-    color: #FFF;
-}
-
-/* 經典淡出效果 */
+/* 頁面切換淡入效果 */
 .animate-fade-in {
     animation: fadeIn 0.8s ease-out forwards;
 }
-
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* 商品卡片懸浮 */
+/* 圖片漸顯與模糊優化 */
+.opacity-0 { opacity: 0; }
+.opacity-100 { opacity: 1 !important; }
+.transition-all { transition: all 0.3s ease; }
+.transition-opacity { transition: opacity 0.5s ease-in-out; }
+.blur-lg { filter: blur(20px); }
+.blur-xl { filter: blur(40px); }
+
+/* 商品卡片與按鈕互動 */
 .hover\:shadow-xl:hover {
     transform: translateY(-5px);
 }
-
-/* 隱藏滾動條但保持滾動功能 */
-.scrollbar-hide::-webkit-scrollbar {
-    display: none;
+/* 選取所有以 btn-container- 開頭的 ID */
+[id^="btn-container-"] button {
+    transition: all 0.2s ease-in-out;
 }
+
+/* 隱藏滾動條（適用於縮圖列表） */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
 }
 
-/* 按鈕過渡效果 */
-#btn-container-[id] button {
-    transition: all 0.2s ease-in-out;
+/* 確保容器比例，防止加載時頁面閃爍 */
+.aspect-square {
+    aspect-ratio: 1 / 1;
 }
