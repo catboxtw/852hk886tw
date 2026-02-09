@@ -7,37 +7,47 @@ let cart = JSON.parse(localStorage.getItem('catbox_cart')) || {};
 async function initWebsite() {
     const loader = document.getElementById('loading-screen');
     
+    // 設定一個保險開關：無論如何，5秒後一定要把 Loading 關掉
+    const forceCloseLoader = setTimeout(() => {
+        if(loader && loader.style.display !== 'none') {
+            loader.style.opacity = '0';
+            setTimeout(() => loader.style.display = 'none', 500);
+            console.warn("API 回應過久，強制關閉載入畫面");
+        }
+    }, 5000);
+
     try {
-        // 設定 10 秒超時，避免 API 沒反應導致頁面永遠卡死
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-        const res = await fetch(DATA_SOURCE_URL, { signal: controller.signal });
+        const res = await fetch(DATA_SOURCE_URL);
         allData = await res.json();
-        clearTimeout(timeoutId);
-
-        console.log("資料加載成功", allData);
+        
+        clearTimeout(forceCloseLoader); // 如果加載成功，清除保險開關
+        
+        if(loader) {
+            loader.style.opacity = '0';
+            setTimeout(() => loader.style.display = 'none', 500);
+        }
 
         renderLogoAndSocial();
         updateCartUI();
         
         const params = new URLSearchParams(window.location.search);
         loadPage(params.get('page') || 'Content');
-
     } catch (e) {
         console.error("資料加載失敗:", e);
-        // 如果失敗了，至少顯示一個提示，不要讓螢幕空白
-        const app = document.getElementById('app');
-        if(app) app.innerHTML = `<div class="py-20 text-center text-red-500">網路連線不穩定，請重新整理頁面。</div>`;
-    } finally {
-        // 無論成功或失敗，一定要移除 Loading 畫面
-        if(loader) {
-            loader.style.opacity = '0';
-            setTimeout(() => {
-                loader.style.display = 'none';
-            }, 500);
-        }
+        document.getElementById('app').innerHTML = `<p class='text-center py-20'>讀取失敗，請重新整理</p>`;
     }
+}
+
+function renderCatalogMenu() {
+    // 增加防錯處理：如果 allData 或 產品資料 是空的，不要執行 .map
+    const items = (allData && allData["產品資料"]) || [];
+    if (items.length === 0) {
+        document.getElementById('app').innerHTML = `<div class="py-20 text-center">暫無商品資料</div>`;
+        return;
+    }
+    
+    const categories = [...new Set(items.map(p => p.Category).filter(Boolean))];
+    // ... 後續原有的渲染代碼 ...
 }
 
 // 渲染 Header
