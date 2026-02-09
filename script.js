@@ -5,36 +5,48 @@ let allData = null;
 let cart = JSON.parse(localStorage.getItem('catbox_cart')) || {};
 
 async function initWebsite() {
+    console.log("初始化開始...");
     const loader = document.getElementById('loading-screen');
-    
-    // 設定一個保險開關：無論如何，5秒後一定要把 Loading 關掉
-    const forceCloseLoader = setTimeout(() => {
-        if(loader && loader.style.display !== 'none') {
-            loader.style.opacity = '0';
-            setTimeout(() => loader.style.display = 'none', 500);
-            console.warn("API 回應過久，強制關閉載入畫面");
-        }
-    }, 5000);
 
     try {
+        // 1. 先嘗試抓取資料
         const res = await fetch(DATA_SOURCE_URL);
+        
+        // 檢查回應是否正常
+        if (!res.ok) throw new Error('網路回應不正確');
+        
         allData = await res.json();
-        
-        clearTimeout(forceCloseLoader); // 如果加載成功，清除保險開關
-        
-        if(loader) {
-            loader.style.opacity = '0';
-            setTimeout(() => loader.style.display = 'none', 500);
+        console.log("資料加載成功:", allData);
+
+        // 2. 執行渲染（確保資料存在才執行）
+        if (allData) {
+            renderLogoAndSocial();
+            updateCartUI();
+            
+            const params = new URLSearchParams(window.location.search);
+            loadPage(params.get('page') || 'Content');
         }
 
-        renderLogoAndSocial();
-        updateCartUI();
-        
-        const params = new URLSearchParams(window.location.search);
-        loadPage(params.get('page') || 'Content');
     } catch (e) {
-        console.error("資料加載失敗:", e);
-        document.getElementById('app').innerHTML = `<p class='text-center py-20'>讀取失敗，請重新整理</p>`;
+        console.error("初始化過程出錯:", e);
+        // 如果抓不到資料，至少讓頁面顯示一些東西，不要全白
+        const app = document.getElementById('app');
+        if (app) {
+            app.innerHTML = `
+                <div class="py-20 text-center">
+                    <p class="text-red-500 mb-4">資料載入失敗，請檢查網路連線</p>
+                    <button onclick="location.reload()" class="bg-[#5D4037] text-white px-6 py-2 rounded-full">重新整理</button>
+                </div>`;
+        }
+    } finally {
+        // 3. 重點：無論成功或失敗，最後一定要把 Loading 關掉
+        if (loader) {
+            console.log("關閉 Loading 畫面");
+            loader.style.opacity = '0';
+            setTimeout(() => {
+                loader.style.display = 'none';
+            }, 500);
+        }
     }
 }
 
