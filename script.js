@@ -153,6 +153,60 @@ function renderCategoryList(catName) {
     document.getElementById('app').innerHTML = html + `</div>`;
 }
 
+function renderCategoryProducts(cat) {
+    const items = allData["產品資料"].filter(p => p.Category === cat);
+    let html = `
+        <div class="flex items-center gap-4 mb-8">
+            <button onclick="switchPage('Content')" class="text-[#8D6E63]">商品分類</button>
+            <span class="text-gray-400">/</span>
+            <h2 class="text-2xl font-bold text-[#5D4037]">${cat}</h2>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+    `;
+
+    items.forEach(p => {
+        const id = p["Item code (ERP)"];
+        const firstImg = p["圖片"] ? p["圖片"].split(',')[0].trim() : '';
+        
+        html += `
+            <div class="bg-white rounded-3xl border border-[#D7CCC8] overflow-hidden hover:shadow-lg transition-all group">
+                <div class="relative cursor-pointer" onclick="switchPage('product', {id:'${id}'})">
+                    <img src="${optimizeCloudinary(firstImg, 400)}" class="w-full aspect-square object-cover group-hover:scale-105 transition-transform duration-500">
+                </div>
+                <div class="p-4">
+                    <h3 class="font-bold text-[#5D4037] mb-1 truncate text-sm md:text-base">${p["Chinese product name"]}</h3>
+                    <div class="flex items-center justify-between mt-3">
+                        <span class="text-[#8D6E63] font-bold">HK$ ${p.Price}</span>
+                        
+                        <div id="btn-container-${id}" class="w-24 md:w-28">
+                            ${getMiniCartButtonUI(id, p["Chinese product name"], p.Price, firstImg)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    document.getElementById('app').innerHTML = html + `</div>`;
+}
+
+// 專為分類頁設計的微型按鈕 UI
+function getMiniCartButtonUI(id, name, price, img) {
+    const item = cart[id];
+    if (!item) {
+        return `
+            <button onclick="addToCart('${id}', '${name.replace(/'/g, "\\'")}', ${price}, '${img}')" 
+                    class="w-full bg-[#5D4037] text-white py-2 rounded-full text-xs font-bold hover:bg-[#4E342E] transition-all">
+                + 加入
+            </button>`;
+    }
+    return `
+        <div class="flex items-center justify-between bg-[#F5F5F5] rounded-full p-1 border border-[#D7CCC8]">
+            <button onclick="updateAllUIQty('${id}', -1)" class="w-8 h-8 flex items-center justify-center text-[#5D4037] font-bold">-</button>
+            <span class="text-[#5D4037] font-bold text-xs">${item.qty}</span>
+            <button onclick="updateAllUIQty('${id}', 1)" class="w-8 h-8 flex items-center justify-center text-[#5D4037] font-bold">+</button>
+        </div>`;
+}
+
 // 輔助函數：優化 Cloudinary 網址 (提升讀取速度)
 function optimizeCloudinary(url, width = 800) {
     if (!url || !url.includes('cloudinary.com')) return url;
@@ -166,9 +220,7 @@ function renderProductDetail(id) {
 
     const rawImages = p["圖片"] || ""; 
     const imageList = rawImages.split(',').map(img => img.trim()).filter(img => img !== "");
-    
-    // 第一張圖作為預設主圖
-    const firstImg = imageList.length > 0 ? imageList[0] : 'https://placehold.co/600x600?text=No+Image';
+    const firstImg = imageList.length > 0 ? imageList[0] : '';
 
     let html = `
         <button onclick="window.history.back()" class="mb-8 text-[#8D6E63] flex items-center gap-2 hover:translate-x-[-4px] transition-transform">
@@ -178,42 +230,37 @@ function renderProductDetail(id) {
         <div class="flex flex-col md:flex-row gap-12 bg-white p-6 md:p-10 rounded-3xl border border-[#D7CCC8] shadow-sm">
             <div class="md:w-1/2">
                 <div class="main-image-container mb-4 overflow-hidden rounded-2xl bg-[#F9F8F7]">
-                    <img id="main-display-img" src="${optimizeCloudinary(firstImg, 800)}" 
-                         class="w-full aspect-square object-cover shadow-inner transition-opacity duration-300">
+                    <img id="main-display-img" src="${optimizeCloudinary(firstImg, 800)}" class="w-full aspect-square object-cover shadow-inner">
                 </div>
-                
                 ${imageList.length > 1 ? `
                 <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                    ${imageList.map((img, idx) => `
+                    ${imageList.map(img => `
                         <img src="${optimizeCloudinary(img, 200)}" 
                              onclick="document.getElementById('main-display-img').src='${optimizeCloudinary(img, 800)}'"
-                             class="w-20 h-20 object-cover rounded-lg cursor-pointer border-2 border-transparent hover:border-[#8D6E63] focus:border-[#8D6E63] transition-all flex-shrink-0 bg-gray-50">
+                             class="w-20 h-20 object-cover rounded-lg cursor-pointer border-2 border-transparent hover:border-[#8D6E63] transition-all flex-shrink-0">
                     `).join('')}
-                </div>
-                ` : ''}
+                </div>` : ''}
             </div>
 
             <div class="md:w-1/2 text-left flex flex-col">
-                <div class="flex-grow">
-                    <span class="text-xs font-bold tracking-widest text-[#A1887F] uppercase">${p.Category || ''}</span>
-                    <h1 class="text-3xl font-bold mt-2 mb-4 text-[#5D4037] leading-tight">${p["Chinese product name"]}</h1>
-                    <p class="text-3xl text-[#8D6E63] font-bold mb-8 italic">HK$ ${p.Price}</p>
-                    
-                    <div class="border-t pt-6">
-                        <h3 class="text-sm font-bold text-[#5D4037] mb-3">商品描述</h3>
-                        <div class="text-gray-600 text-sm leading-relaxed mb-10">
-                            ${(p["中文描述"] || "商品詳情準備中...").replace(/\n/g, '<br>')}
-                        </div>
+                <span class="text-xs font-bold tracking-widest text-[#A1887F] uppercase">${p.Category || ''}</span>
+                <h1 class="text-3xl font-bold mt-2 mb-4 text-[#5D4037]">${p["Chinese product name"]}</h1>
+                
+                <div class="flex items-center justify-between mb-8 pb-6 border-b">
+                    <p class="text-3xl text-[#8D6E63] font-bold italic">HK$ ${p.Price}</p>
+                    <div id="btn-container-${id}" class="w-40"> ${getCartButtonUI(id, p["Chinese product name"], p.Price, firstImg)}
                     </div>
                 </div>
 
-                <div id="btn-container-${id}">
-                    ${getCartButtonUI(id, p["Chinese product name"], p.Price, firstImg)}
+                <div class="flex-grow">
+                    <h3 class="text-sm font-bold text-[#5D4037] mb-3">商品描述</h3>
+                    <div class="text-gray-600 text-sm leading-relaxed mb-10">
+                        ${(p["中文描述"] || "商品詳情準備中...").replace(/\n/g, '<br>')}
+                    </div>
                 </div>
             </div>
         </div>
     `;
-
     document.getElementById('app').innerHTML = html;
 }
 
@@ -298,19 +345,34 @@ async function submitOrder(e, total) {
     }
 }
 
-// 輔助功能
+function updateAllUIQty(id, delta) {
+    changeQty(id, delta); // 更新 localStorage 和 cart 物件
+    
+    // 獲取商品資訊以重新渲染按鈕
+    const p = allData["產品資料"].find(item => String(item["Item code (ERP)"]) === String(id));
+    if (!p) return;
+    const firstImg = p["圖片"] ? p["圖片"].split(',')[0].trim() : '';
+
+    // 找到所有該商品的按鈕容器 (詳情頁和列表頁可能同時存在)
+    const containers = document.querySelectorAll(`[id="btn-container-${id}"]`);
+    containers.forEach(container => {
+        // 判斷當前是詳情頁的大按鈕還是列表頁的小按鈕
+        if (container.classList.contains('w-40')) {
+            container.innerHTML = getCartButtonUI(id, p["Chinese product name"], p.Price, firstImg);
+        } else {
+            container.innerHTML = getMiniCartButtonUI(id, p["Chinese product name"], p.Price, firstImg);
+        }
+    });
+}
+
+// 修改原有的 addToCart，使其不彈窗並局部更新
 function addToCart(id, name, price, img) {
     if (cart[id]) cart[id].qty += 1;
     else cart[id] = { name, price, img, qty: 1 };
     
     localStorage.setItem('catbox_cart', JSON.stringify(cart));
-    updateCartUI();
-    
-    // 立即更新詳情頁的按鈕
-    const btnContainer = document.getElementById(`btn-container-${id}`);
-    if (btnContainer) {
-        btnContainer.innerHTML = getCartButtonUI(id, name, price, img);
-    }
+    updateCartUI(); // 更新導航欄的小紅點數量
+    updateAllUIQty(id, 0); // 觸發按鈕狀態切換
 }
 
 function changeQty(id, delta) {
