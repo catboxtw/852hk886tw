@@ -190,20 +190,21 @@ function renderCategoryProducts(cat) {
 }
 
 // 專為分類頁設計的微型按鈕 UI
+// 分類列表頁的微型按鈕 UI
 function getMiniCartButtonUI(id, name, price, img) {
     const item = cart[id];
     if (!item) {
         return `
             <button onclick="addToCart('${id}', '${name.replace(/'/g, "\\'")}', ${price}, '${img}')" 
-                    class="w-full bg-[#5D4037] text-white py-2 rounded-full text-xs font-bold hover:bg-[#4E342E] transition-all">
-                + 加入
+                    class="w-8 h-8 flex items-center justify-center bg-[#5D4037] text-white rounded-full hover:shadow-lg transition-all font-bold">
+                +
             </button>`;
     }
     return `
-        <div class="flex items-center justify-between bg-[#F5F5F5] rounded-full p-1 border border-[#D7CCC8]">
-            <button onclick="updateAllUIQty('${id}', -1)" class="w-8 h-8 flex items-center justify-center text-[#5D4037] font-bold">-</button>
-            <span class="text-[#5D4037] font-bold text-xs">${item.qty}</span>
-            <button onclick="updateAllUIQty('${id}', 1)" class="w-8 h-8 flex items-center justify-center text-[#5D4037] font-bold">+</button>
+        <div class="flex items-center bg-[#F8F5F4] rounded-full border border-[#D7CCC8] p-0.5">
+            <button onclick="updateAllUIQty('${id}', -1)" class="w-6 h-6 flex items-center justify-center text-[#5D4037] hover:bg-white rounded-full text-xs">-</button>
+            <span class="px-2 text-[#5D4037] font-bold text-xs">${item.qty}</span>
+            <button onclick="updateAllUIQty('${id}', 1)" class="w-6 h-6 flex items-center justify-center text-[#5D4037] hover:bg-white rounded-full text-xs">+</button>
         </div>`;
 }
 
@@ -246,11 +247,14 @@ function renderProductDetail(id) {
                 <span class="text-xs font-bold tracking-widest text-[#A1887F] uppercase">${p.Category || ''}</span>
                 <h1 class="text-3xl font-bold mt-2 mb-4 text-[#5D4037]">${p["Chinese product name"]}</h1>
                 
-                <div class="flex items-center justify-between mb-8 pb-6 border-b">
-                    <p class="text-3xl text-[#8D6E63] font-bold italic">HK$ ${p.Price}</p>
-                    <div id="btn-container-${id}" class="w-40"> ${getCartButtonUI(id, p["Chinese product name"], p.Price, firstImg)}
-                    </div>
-                </div>
+                <div class="flex items-center justify-between mb-8 pb-6 border-b border-[#F0EAE6]">
+    <div>
+        <p class="text-3xl text-[#8D6E63] font-bold italic">HK$ ${p.Price}</p>
+    </div>
+    <div id="btn-container-${id}" class="detail-btn">
+        ${getCartButtonUI(id, p["Chinese product name"], p.Price, firstImg)}
+    </div>
+</div>
 
                 <div class="flex-grow">
                     <h3 class="text-sm font-bold text-[#5D4037] mb-3">商品描述</h3>
@@ -345,34 +349,37 @@ async function submitOrder(e, total) {
     }
 }
 
+// 修改後的更新邏輯：原地尋找所有該商品的按鈕並更新
 function updateAllUIQty(id, delta) {
-    changeQty(id, delta); // 更新 localStorage 和 cart 物件
+    if (delta !== 0) changeQty(id, delta); 
     
-    // 獲取商品資訊以重新渲染按鈕
     const p = allData["產品資料"].find(item => String(item["Item code (ERP)"]) === String(id));
     if (!p) return;
     const firstImg = p["圖片"] ? p["圖片"].split(',')[0].trim() : '';
 
-    // 找到所有該商品的按鈕容器 (詳情頁和列表頁可能同時存在)
+    // 選取所有具有該 ID 容器的按鈕（支援多頁面同時存在）
     const containers = document.querySelectorAll(`[id="btn-container-${id}"]`);
     containers.forEach(container => {
-        // 判斷當前是詳情頁的大按鈕還是列表頁的小按鈕
-        if (container.classList.contains('w-40')) {
-            container.innerHTML = getCartButtonUI(id, p["Chinese product name"], p.Price, firstImg);
+        // 根據父容器的寬度或位置自動判斷要給大 UI 還是小 UI
+        if (container.parentElement.classList.contains('flex-row') || container.classList.contains('detail-btn')) {
+             container.innerHTML = getCartButtonUI(id, p["Chinese product name"], p.Price, firstImg);
         } else {
-            container.innerHTML = getMiniCartButtonUI(id, p["Chinese product name"], p.Price, firstImg);
+             container.innerHTML = getMiniCartButtonUI(id, p["Chinese product name"], p.Price, firstImg);
         }
     });
 }
 
-// 修改原有的 addToCart，使其不彈窗並局部更新
+// 修改後的 addToCart：不再調用 switchPage
 function addToCart(id, name, price, img) {
-    if (cart[id]) cart[id].qty += 1;
-    else cart[id] = { name, price, img, qty: 1 };
+    if (cart[id]) {
+        cart[id].qty += 1;
+    } else {
+        cart[id] = { name, price, img, qty: 1 };
+    }
     
     localStorage.setItem('catbox_cart', JSON.stringify(cart));
-    updateCartUI(); // 更新導航欄的小紅點數量
-    updateAllUIQty(id, 0); // 觸發按鈕狀態切換
+    updateCartUI(); // 更新右上角購物車小紅點
+    updateAllUIQty(id, 0); // 原地切換按鈕狀態
 }
 
 function changeQty(id, delta) {
@@ -399,27 +406,26 @@ function updateCartUI() {
 }
 
 // 取得按鈕 HTML 的輔助函數
+// 商品詳情頁的大按鈕 UI
 function getCartButtonUI(id, name, price, img) {
     const item = cart[id];
     
-    // 如果購物車內沒有此商品
     if (!item) {
         return `
-            <button onclick="addToCart('${id}', '${name}', ${price}, '${img}')" 
-                    class="w-full bg-[#5D4037] text-white px-12 py-4 rounded-xl font-bold shadow-lg hover:bg-[#4E342E] transition-all active:scale-95">
+            <button onclick="addToCart('${id}', '${name.replace(/'/g, "\\'")}', ${price}, '${img}')" 
+                    class="bg-[#5D4037] text-white px-8 py-2.5 rounded-full text-sm font-bold shadow-md hover:bg-[#4E342E] transition-all whitespace-nowrap">
                 放入購物車
             </button>`;
     }
 
-    // 如果已經在購物車，顯示「數量控制器」
     return `
-        <div class="flex items-center justify-between bg-[#EFEBE9] rounded-xl p-1 border border-[#D7CCC8]">
-            <button onclick="updateDetailQty('${id}', -1)" class="px-6 py-4 text-[#5D4037] font-bold text-xl hover:bg-[#D7CCC8] rounded-l-xl transition">-</button>
-            <div class="flex flex-col items-center">
-                <span class="text-[#5D4037] font-bold">${item.qty}</span>
-                <span class="text-[10px] text-[#8D6E63]">已加入購物車</span>
+        <div class="flex items-center bg-[#F8F5F4] rounded-full border border-[#D7CCC8] p-1 shadow-inner">
+            <button onclick="updateAllUIQty('${id}', -1)" class="w-8 h-8 flex items-center justify-center text-[#5D4037] hover:bg-white rounded-full transition">-</button>
+            <div class="px-3 flex items-center gap-2">
+                <span class="text-[#5D4037] font-bold text-sm">${item.qty}</span>
+                <span class="text-[10px] text-[#8D6E63] font-medium whitespace-nowrap">已加入</span>
             </div>
-            <button onclick="updateDetailQty('${id}', 1)" class="px-6 py-4 text-[#5D4037] font-bold text-xl hover:bg-[#D7CCC8] rounded-r-xl transition">+</button>
+            <button onclick="updateAllUIQty('${id}', 1)" class="w-8 h-8 flex items-center justify-center text-[#5D4037] hover:bg-white rounded-full transition">+</button>
         </div>`;
 }
 
