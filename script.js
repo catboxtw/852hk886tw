@@ -251,8 +251,8 @@ function renderProductDetail(id) {
         <p class="text-3xl text-[#8D6E63] font-bold italic">HK$ ${p.Price}</p>
     </div>
     <div id="btn-container-${id}" class="detail-btn">
-        ${getCartButtonUI(id, p["Chinese product name"], p.Price, firstImg)}
-    </div>
+    ${getCartButtonUI(id, p["Chinese product name"], p.Price, firstImg)}
+</div>
 </div>
 
                 <div class="flex-grow">
