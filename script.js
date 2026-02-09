@@ -134,7 +134,6 @@ function renderCatalogMenu() {
     document.getElementById('app').innerHTML = html + `</div>`;
 }
 
-// 2. 某分類下的商品列表
 function renderCategoryList(catName) {
     const products = (allData["產品資料"] || []).filter(p => p.Category === catName);
     let html = `
@@ -148,12 +147,18 @@ function renderCategoryList(catName) {
     products.forEach(p => {
         const id = p["Item code (ERP)"];
         const img = p["圖片"] ? p["圖片"].split(',')[0].trim() : '';
+        // 列表頁只需要 400px 的優化圖，速度極快
+        const thumbImg = optimizeCloudinary(img, 400);
+        const placeholderImg = optimizeCloudinary(img, 50, true);
         
         html += `
             <div class="bg-white border border-[#D7CCC8] rounded-3xl p-4 shadow-sm hover:shadow-md transition group">
-                <div class="overflow-hidden rounded-2xl mb-4">
-                    <img src="${optimizeCloudinary(img, 400)}" 
-                         class="w-full aspect-square object-cover cursor-pointer group-hover:scale-105 transition-transform duration-500" 
+                <div class="overflow-hidden rounded-2xl mb-4 bg-[#F9F8F7] relative aspect-square">
+                    <img src="${placeholderImg}" class="w-full h-full object-cover absolute inset-0 blur-lg scale-110">
+                    <img src="${thumbImg}" 
+                         loading="lazy"
+                         class="w-full h-full object-cover relative z-10 cursor-pointer group-hover:scale-105 transition-all duration-500 opacity-0"
+                         onload="this.classList.remove('opacity-0'); this.classList.add('opacity-100')"
                          onclick="switchPage('product', {id:'${id}'})">
                 </div>
                 <h4 class="font-bold truncate text-[#5D4037] text-sm md:text-base">${p["Chinese product name"]}</h4>
@@ -223,12 +228,13 @@ function getMiniCartButtonUI(id, name, price, img) {
 }
 
 // 輔助函數：優化 Cloudinary 網址 (提升讀取速度)
-function optimizeCloudinary(url, width = 800) {
+function optimizeCloudinary(url, width = 800, blur = false) {
     if (!url || !url.includes('cloudinary.com')) return url;
-    return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
+    // 如果是 blur 模式，我們要求一張極小(50px)且模糊的圖
+    const params = blur ? `f_auto,q_auto,w_50,e_blur:1000` : `f_auto,q_auto,w_${width}`;
+    return url.replace('/upload/', `/upload/${params}/`);
 }
 
-// 3. 商品詳情頁
 function renderProductDetail(id) {
     const p = allData["產品資料"].find(item => String(item["Item code (ERP)"]) === String(id));
     if (!p) return;
@@ -237,6 +243,10 @@ function renderProductDetail(id) {
     const imageList = rawImages.split(',').map(img => img.trim()).filter(img => img !== "");
     const firstImg = imageList.length > 0 ? imageList[0] : '';
 
+    // 生成優化網址
+    const mainImgReal = optimizeCloudinary(firstImg, 800); // 真實大圖
+    const mainImgPlaceholder = optimizeCloudinary(firstImg, 50, true); // 模糊占位小圖
+
     let html = `
         <button onclick="window.history.back()" class="mb-8 text-[#8D6E63] flex items-center gap-2 hover:translate-x-[-4px] transition-transform">
             ← 返回
@@ -244,31 +254,41 @@ function renderProductDetail(id) {
         
         <div class="flex flex-col md:flex-row gap-12 bg-white p-6 md:p-10 rounded-3xl border border-[#D7CCC8] shadow-sm">
             <div class="md:w-1/2">
-                <div class="main-image-container mb-4 overflow-hidden rounded-2xl bg-[#F9F8F7]">
-                    <img id="main-display-img" src="${optimizeCloudinary(firstImg, 800)}" class="w-full aspect-square object-cover shadow-inner">
+                <div class="main-image-container mb-4 overflow-hidden rounded-2xl bg-[#F9F8F7] relative aspect-square">
+                    <img src="${mainImgPlaceholder}" class="w-full h-full object-cover absolute inset-0 scale-110 blur-xl">
+                    <img id="main-display-img" src="${mainImgReal}" 
+                         class="w-full h-full object-cover relative z-10 transition-opacity duration-500 opacity-0"
+                         onload="this.classList.remove('opacity-0'); this.classList.add('opacity-100')">
                 </div>
+                
                 ${imageList.length > 1 ? `
                 <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                    ${imageList.map(img => `
-                        <img src="${optimizeCloudinary(img, 200)}" 
-                             onclick="document.getElementById('main-display-img').src='${optimizeCloudinary(img, 800)}'"
-                             class="w-20 h-20 object-cover rounded-lg cursor-pointer border-2 border-transparent hover:border-[#8D6E63] transition-all flex-shrink-0">
-                    `).join('')}
+                    ${imageList.map(img => {
+                        const thumb = optimizeCloudinary(img, 200);
+                        const full = optimizeCloudinary(img, 800);
+                        return `
+                        <div class="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden border-2 border-transparent hover:border-[#8D6E63] transition-all cursor-pointer">
+                            <img src="${thumb}" 
+                                 onclick="const main=document.getElementById('main-display-img'); main.style.opacity='0'; setTimeout(()=>{main.src='${full}'}, 200)"
+                                 class="w-full h-full object-cover"
+                                 loading="lazy">
+                        </div>`;
+                    }).join('')}
                 </div>` : ''}
             </div>
 
             <div class="md:w-1/2 text-left flex flex-col">
                 <span class="text-xs font-bold tracking-widest text-[#A1887F] uppercase">${p.Category || ''}</span>
-                <h1 class="text-3xl font-bold mt-2 mb-4 text-[#5D4037]">${p["Chinese product name"]}</h1>
+                <h1 class="text-3xl font-bold mt-2 mb-4 text-[#5D4037] leading-tight">${p["Chinese product name"]}</h1>
                 
                 <div class="flex items-center justify-between mb-8 pb-6 border-b border-[#F0EAE6]">
-    <div>
-        <p class="text-3xl text-[#8D6E63] font-bold italic">HK$ ${p.Price}</p>
-    </div>
-    <div id="btn-container-${id}" class="detail-btn">
-    ${getCartButtonUI(id, p["Chinese product name"], p.Price, firstImg)}
-</div>
-</div>
+                    <div>
+                        <p class="text-3xl text-[#8D6E63] font-bold italic">HK$ ${p.Price}</p>
+                    </div>
+                    <div id="btn-container-${id}" class="detail-btn">
+                        ${getCartButtonUI(id, p["Chinese product name"], p.Price, firstImg)}
+                    </div>
+                </div>
 
                 <div class="flex-grow">
                     <h3 class="text-sm font-bold text-[#5D4037] mb-3">商品描述</h3>
