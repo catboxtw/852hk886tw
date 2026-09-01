@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catbox 台灣代購 | 出 Post</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+  body { font-family: "Noto Sans TC", -apple-system, sans-serif; }
+  .card-font-serif { font-family: "Noto Serif TC", serif; }
+  textarea, input { font-family: inherit; }
+</style>
+</head>
+<body class="bg-[#FDFCFB] text-[#5D4037] min-h-screen">
+
+  <!-- 尚未設定 SUPABASE_URL / GAS_EXEC_URL 時顯示 -->
+  <div id="setup-notice" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-[#FDFCFB] p-6">
+    <div class="max-w-md bg-white border border-[#D7CCC8] rounded-3xl p-8 text-center shadow-sm">
+      <div class="text-4xl mb-4">⚙️</div>
+      <h1 class="text-lg font-bold mb-2">尚未設定</h1>
+      <p class="text-sm text-[#8D6E63] leading-relaxed">呢頁仲未填 Supabase / GAS 網址設定,請聯絡管理員喺 <code class="bg-[#F0EAE6] px-1 rounded">post.html</code> 頂部填好 <code class="bg-[#F0EAE6] px-1 rounded">CONFIG</code> 先可以使用。</p>
+    </div>
+  </div>
+
+  <!-- 登入畫面 -->
+  <div id="login-screen" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-[#FDFCFB] p-6">
+    <form id="login-form" class="w-full max-w-sm bg-white border border-[#D7CCC8] rounded-3xl p-8 shadow-sm space-y-5">
+      <div class="text-center mb-2">
+        <div class="text-xl font-bold text-[#5D4037]">Catbox 出 Post</div>
+        <p class="text-xs text-[#A1887F] mt-1">管理員登入</p>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-[#8D6E63] mb-1.5">Email</label>
+        <input id="login-email" type="email" required class="w-full p-3.5 border border-[#D7CCC8] rounded-xl bg-[#FAFAFA] outline-none focus:border-[#8D6E63] transition">
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-[#8D6E63] mb-1.5">密碼</label>
+        <input id="login-password" type="password" required class="w-full p-3.5 border border-[#D7CCC8] rounded-xl bg-[#FAFAFA] outline-none focus:border-[#8D6E63] transition">
+      </div>
+      <p id="login-error" class="hidden text-xs text-red-500"></p>
+      <button type="submit" id="login-btn" class="w-full bg-[#5D4037] text-white py-3.5 rounded-xl font-bold hover:bg-[#4E342E] transition">登入</button>
+    </form>
+  </div>
+
+  <!-- 主工具畫面 -->
+  <div id="app-screen" class="hidden">
+    <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-[#D7CCC8]">
+      <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="font-bold text-[#5D4037]">Catbox 出 Post</div>
+        <button onclick="logout()" class="text-xs text-[#8D6E63] hover:underline">登出</button>
+      </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 py-8 space-y-8">
+
+      <!-- 快速新增 -->
+      <section class="bg-white border border-[#D7CCC8] rounded-3xl p-6 space-y-6">
+        <h2 class="font-bold text-[#5D4037]">快速新增商品</h2>
+
+        <!-- 7-11 快閃購 -->
+        <div class="border border-[#F0EAE6] rounded-2xl p-4 space-y-3">
+          <div class="font-bold text-sm text-[#5D4037]">📸 7-11 快閃購（貼圖 + 打商品清單）</div>
+          <div class="flex flex-wrap gap-4 items-start">
+            <div class="flex-none">
+              <input type="file" id="seven-photo-input" accept="image/*" class="hidden" onchange="onSevenPhoto(event)">
+              <button type="button" onclick="document.getElementById('seven-photo-input').click()" class="bg-[#FF6B4A] text-white text-xs font-bold px-4 py-2.5 rounded-full hover:opacity-90 transition">📷 上傳宣傳圖</button>
+              <div id="seven-photo-preview" class="w-24 h-24 bg-[#F9F8F7] rounded-xl border border-[#D7CCC8] mt-2 flex items-center justify-center text-[10px] text-[#bbb] overflow-hidden">預覽</div>
+            </div>
+            <div class="flex-1 min-w-[240px]">
+              <label class="block text-xs font-bold text-[#8D6E63] mb-1.5">商品清單（一行一件,格式:名稱 | 價錢）</label>
+              <textarea id="seven-list" rows="4" class="w-full text-sm p-3 border border-[#D7CCC8] rounded-xl bg-[#FAFAFA] outline-none focus:border-[#8D6E63]" placeholder="小可造型零錢包 | 349&#10;庫洛魔法使雙層零錢包 | 299"></textarea>
+              <button onclick="addSevenItems()" class="mt-2 bg-[#FF6B4A] text-white text-xs font-bold px-4 py-2.5 rounded-full hover:opacity-90 transition">➕ 全部加入</button>
+              <p id="seven-msg" class="text-xs text-[#8D6E63] mt-2"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- khw1.com -->
+        <div class="border border-[#F0EAE6] rounded-2xl p-4 space-y-3">
+          <div class="font-bold text-sm text-[#5D4037]">🔗 khw1.com 商品（貼網址自動攞資料）</div>
+          <label class="block text-xs font-bold text-[#8D6E63] mb-1.5">商品網址（一行一條）</label>
+          <textarea id="khw1-urls" rows="3" class="w-full text-sm p-3 border border-[#D7CCC8] rounded-xl bg-[#FAFAFA] outline-none focus:border-[#8D6E63]" placeholder="https://www.khw1.com/products/..."></textarea>
+          <button id="khw1-fetch-btn" onclick="fetchKhw1Items()" class="bg-[#2EC4B6] text-white text-xs font-bold px-4 py-2.5 rounded-full hover:opacity-90 transition">🔍 攞資料</button>
+          <div id="khw1-preview" class="space-y-2"></div>
+        </div>
+      </section>
+
+      <!-- 已加入清單 -->
+      <section class="bg-white border border-[#D7CCC8] rounded-3xl p-6 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="font-bold text-[#5D4037]">已加入商品</h2>
+          <span id="items-count" class="text-xs text-[#A1887F]">0 件</span>
+        </div>
+        <div id="items-list" class="space-y-2">
+          <p class="text-sm text-[#A1887F]">尚未加入任何商品,用上面兩種方式新增。</p>
+        </div>
+      </section>
+
+      <!-- 排程設定 + 產生卡圖 -->
+      <section class="bg-white border border-[#D7CCC8] rounded-3xl p-6 space-y-4">
+        <h2 class="font-bold text-[#5D4037]">排程 IG Post</h2>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-[#8D6E63] mb-1.5">標題（內部用,唔會出街）</label>
+            <input id="post-title" type="text" class="w-full p-3 border border-[#D7CCC8] rounded-xl bg-[#FAFAFA] outline-none focus:border-[#8D6E63]">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-[#8D6E63] mb-1.5">排程時間</label>
+            <input id="post-schedule" type="datetime-local" class="w-full p-3 border border-[#D7CCC8] rounded-xl bg-[#FAFAFA] outline-none focus:border-[#8D6E63]">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-[#8D6E63] mb-1.5">文案</label>
+          <textarea id="post-caption" rows="6" class="w-full text-sm p-3 border border-[#D7CCC8] rounded-xl bg-[#FAFAFA] outline-none focus:border-[#8D6E63]"></textarea>
+        </div>
+        <button onclick="generateAndSchedule()" id="generate-btn" class="bg-[#5D4037] text-white font-bold px-6 py-3 rounded-full hover:bg-[#4E342E] transition">✨ 產生卡圖並排程</button>
+        <p id="generate-msg" class="text-sm text-[#8D6E63]"></p>
+        <div id="card-preview" class="flex flex-wrap gap-4"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 隱藏畫布,出卡圖用 -->
+  <canvas id="card-canvas" width="1080" height="1350" class="hidden"></canvas>
+
+<script>
+// ═══════════════════════════════════════════
+// 設定 —— 交俾管理員填
+// ═══════════════════════════════════════════
+const CONFIG = {
+  SUPABASE_URL: "",       // TODO: Settings → API → Project URL
+  SUPABASE_ANON_KEY: "",  // TODO: Settings → API → anon public key
+  GAS_EXEC_URL: "",       // TODO: 「賣貨便訂單腳本」GAS Web App 的 /exec 網址（同 bot 用嗰條一樣）
+};
+
+let supabaseClient = null;
+let items = []; // { id, source: 'seven'|'khw1', name, price, image (dataURL or remote URL), note }
+
+// ── 啟動檢查 ──
+(function init() {
+  if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_ANON_KEY || !CONFIG.GAS_EXEC_URL) {
+    document.getElementById('setup-notice').classList.remove('hidden');
+    return;
+  }
+  supabaseClient = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+  checkSession();
+})();
+
+async function checkSession() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session) showApp(); else showLogin();
+}
+
+function showLogin() {
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('app-screen').classList.add('hidden');
+}
+
+function showApp() {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-screen').classList.remove('hidden');
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('post-schedule').value = now.toISOString().slice(0, 16);
+}
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('login-btn');
+  const errEl = document.getElementById('login-error');
+  errEl.classList.add('hidden');
+  btn.disabled = true; btn.textContent = '登入中...';
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = '登入';
+  if (error) {
+    errEl.textContent = '登入失敗:' + error.message;
+    errEl.classList.remove('hidden');
+    return;
+  }
+  showApp();
+});
+
+async function logout() {
+  await supabaseClient.auth.signOut();
+  showLogin();
+}
+
+// ═══════════════════════════════════════════
+// 商品清單
+// ═══════════════════════════════════════════
+function addItem(item) {
+  item.id = 'i' + Date.now() + Math.random().toString(36).slice(2, 7);
+  items.push(item);
+  renderItems();
+}
+
+function removeItem(id) {
+  items = items.filter(i => i.id !== id);
+  renderItems();
+}
+
+function renderItems() {
+  const el = document.getElementById('items-list');
+  document.getElementById('items-count').textContent = items.length + ' 件';
+  if (!items.length) {
+    el.innerHTML = '<p class="text-sm text-[#A1887F]">尚未加入任何商品,用上面兩種方式新增。</p>';
+    return;
+  }
+  el.innerHTML = items.map(it => `
+    <div class="flex items-center gap-3 border border-[#F0EAE6] rounded-xl p-2.5">
+      <img src="${it.image}" class="w-12 h-12 object-cover rounded-lg flex-shrink-0" onerror="this.style.opacity=0">
+      <span class="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${it.source === 'seven' ? 'bg-[#FFE8E0] text-[#FF6B4A]' : 'bg-[#DEF7F4] text-[#1B9E92]'}">${it.source === 'seven' ? '7-11' : 'khw1'}</span>
+      <span class="flex-1 text-sm font-medium truncate">${escapeHtml(it.name)}</span>
+      <span class="text-sm font-bold text-[#5D4037]">NT$${it.price}</span>
+      <button onclick="removeItem('${it.id}')" class="text-xs text-red-400 hover:underline flex-shrink-0">移除</button>
+    </div>`).join('');
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ── 7-11 快閃購 ──
+let sevenPhotoDataUrl = '';
+
+function onSevenPhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    sevenPhotoDataUrl = reader.result;
+    document.getElementById('seven-photo-preview').innerHTML = `<img src="${sevenPhotoDataUrl}" class="w-full h-full object-cover">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+// 一行拆做「名稱」＋「售價」：支援 | 分隔、tab 分隔（貼 Excel）、
+// 或者純粹「名稱 空格 數字」— 見到邊種格式就用邊種。
+function parseListLine(line) {
+  let parts = line.split('|');
+  if (parts.length < 2) parts = line.split('\t');
+  if (parts.length < 2) {
+    const m = line.match(/^(.*?)[\s,，]+(?:NT\$|\$)?\s*(\d+(?:\.\d+)?)\s*$/);
+    if (m) parts = [m[1], m[2]];
+  }
+  const name = (parts[0] || '').trim();
+  const price = parseFloat((parts[1] || '').replace(/[^\d.]/g, ''));
+  return { name, price };
+}
+
+function addSevenItems() {
+  const lines = document.getElementById('seven-list').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const msg = document.getElementById('seven-msg');
+  if (!lines.length) { msg.textContent = '請先打商品清單'; return; }
+  let ok = 0;
+  const fail = [];
+  lines.forEach(line => {
+    const { name, price } = parseListLine(line);
+    if (!name || !price) { fail.push(line); return; }
+    addItem({ source: 'seven', name, price, image: sevenPhotoDataUrl || '' });
+    ok++;
+  });
+  msg.textContent = `✅ 加咗 ${ok} 件。` + (fail.length ? ` ❌ 格式睇唔明:${fail.join('；')}` : '');
+  if (ok) document.getElementById('seven-list').value = '';
+}
+
+// ── khw1.com ──
+let khw1Fetched = [];
+
+async function fetchKhw1Items() {
+  const urls = document.getElementById('khw1-urls').value.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!urls.length) return;
+  const btn = document.getElementById('khw1-fetch-btn');
+  btn.disabled = true; btn.textContent = '攞緊資料…';
+  const box = document.getElementById('khw1-preview');
+  khw1Fetched = [];
+  for (const url of urls) {
+    try {
+      const res = await fetch(`${CONFIG.GAS_EXEC_URL}?action=getKhw1Product&url=${encodeURIComponent(url)}`);
+      const d = await res.json();
+      if (d.error) khw1Fetched.push({ url, error: d.message || d.error });
+      else khw1Fetched.push({ url, name: d.name || '', image: d.image || '', price: d.price || 0, note: d.note || '' });
+    } catch (e) {
+      khw1Fetched.push({ url, error: e.message });
+    }
+  }
+  btn.disabled = false; btn.textContent = '🔍 攞資料';
+  renderKhw1Preview();
+}
+
+function renderKhw1Preview() {
+  const box = document.getElementById('khw1-preview');
+  box.innerHTML = khw1Fetched.map((it, i) => {
+    if (it.error) {
+      return `<div class="text-xs text-red-500 border border-red-100 bg-red-50 rounded-lg p-2 break-all">❌ ${escapeHtml(it.url)}:${escapeHtml(it.error)}</div>`;
+    }
+    if (it.added) {
+      return `<div class="text-xs text-green-700 bg-green-50 border border-green-100 rounded-lg p-2">✅ 已加入:${escapeHtml(it.name)}</div>`;
+    }
+    return `
+      <div class="flex flex-wrap items-center gap-2 border border-[#F0EAE6] rounded-lg p-2">
+        <img src="${it.image}" class="w-10 h-10 object-cover rounded-lg flex-shrink-0" onerror="this.style.opacity=0">
+        <input data-i="${i}" data-f="name" value="${escapeHtml(it.name)}" class="flex-1 min-w-[120px] text-xs p-1.5 border border-[#D7CCC8] rounded-lg" oninput="updateKhw1Field(${i},'name',this.value)">
+        <input data-i="${i}" data-f="price" type="number" value="${it.price}" class="w-20 text-xs p-1.5 border border-[#D7CCC8] rounded-lg" oninput="updateKhw1Field(${i},'price',this.value)">
+        <button onclick="addKhw1Item(${i})" class="text-xs font-bold bg-[#2EC4B6] text-white px-3 py-1.5 rounded-full flex-shrink-0">➕ 加入</button>
+        ${it.note ? `<div class="w-full text-[11px] text-[#A1887F]">ℹ️ ${escapeHtml(it.note)}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function updateKhw1Field(i, field, value) {
+  khw1Fetched[i][field] = field === 'price' ? (parseFloat(value) || 0) : value;
+}
+
+function addKhw1Item(i) {
+  const it = khw1Fetched[i];
+  if (!it || it.error || it.added) return;
+  addItem({ source: 'khw1', name: it.name, price: it.price, image: it.image, note: it.note });
+  it.added = true;
+  renderKhw1Preview();
+}
+
+// ═══════════════════════════════════════════
+// 出卡圖 + 排程
+// ═══════════════════════════════════════════
+const CARD_W = 1080, CARD_H = 1350, M = 80;
+const PALETTE = {
+  seven: { paper: '#FFF3EE', ribbon: '#FF6B4A', ink: '#5A2E1F', muted: '#B98B78' },
+  khw1:  { paper: '#EAFBF9', ribbon: '#1B9E92', ink: '#134A44', muted: '#6FA79F' },
+};
+
+let fontsReady = null;
+function loadCardFonts() {
+  if (fontsReady) return fontsReady;
+  fontsReady = Promise.all([
+    document.fonts.load('900 60px "Noto Sans TC"'),
+    document.fonts.load('700 56px "Noto Serif TC"'),
+    document.fonts.load('700 40px "Noto Sans TC"'),
+  ]);
+  return fontsReady;
+}
+
+function wrapText(ctx, text, maxWidth, maxLines) {
+  const chars = Array.from(text || '');
+  const lines = [];
+  let line = '';
+  for (const ch of chars) {
+    const test = line + ch;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = ch;
+      if (lines.length === maxLines - 1) break;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  if (lines.length === maxLines && chars.length > lines.join('').length) {
+    lines[lines.length - 1] = lines[lines.length - 1].slice(0, -1) + '…';
+  }
+  return lines;
+}
+
+// 第三方圖片一定要先過 GAS proxyImage 攞返 data URI 先可以畫落 canvas，
+// 唔係嘅話 canvas 會被標記為 tainted，toDataURL/toBlob 會俾瀏覽器擋。
+async function resolveImage(url) {
+  if (!url) return null;
+  if (url.startsWith('data:')) return url;
+  try {
+    const res = await fetch(`${CONFIG.GAS_EXEC_URL}?action=proxyImage&url=${encodeURIComponent(url)}`);
+    const d = await res.json();
+    return d.dataUri || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function loadImg(dataUri) {
+  return new Promise((resolve) => {
+    if (!dataUri) { resolve(null); return; }
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = dataUri;
+  });
+}
+
+async function drawCard(item) {
+  await loadCardFonts();
+  const cv = document.getElementById('card-canvas');
+  const ctx = cv.getContext('2d');
+  const P = PALETTE[item.source] || PALETTE.seven;
+
+  ctx.clearRect(0, 0, CARD_W, CARD_H);
+  ctx.fillStyle = P.paper;
+  ctx.fillRect(0, 0, CARD_W, CARD_H);
+
+  // 相框
+  const photoSize = 880, photoX = (CARD_W - photoSize) / 2, photoY = 90;
+  ctx.save();
+  ctx.beginPath();
+  const r = 32;
+  ctx.moveTo(photoX + r, photoY);
+  ctx.arcTo(photoX + photoSize, photoY, photoX + photoSize, photoY + photoSize, r);
+  ctx.arcTo(photoX + photoSize, photoY + photoSize, photoX, photoY + photoSize, r);
+  ctx.arcTo(photoX, photoY + photoSize, photoX, photoY, r);
+  ctx.arcTo(photoX, photoY, photoX + photoSize, photoY, r);
+  ctx.closePath();
+  ctx.clip();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(photoX, photoY, photoSize, photoSize);
+
+  const dataUri = await resolveImage(item.image);
+  const img = await loadImg(dataUri);
+  if (img) {
+    const scale = Math.max(photoSize / img.width, photoSize / img.height);
+    const dw = img.width * scale, dh = img.height * scale;
+    ctx.drawImage(img, photoX + (photoSize - dw) / 2, photoY + (photoSize - dh) / 2, dw, dh);
+  } else {
+    ctx.fillStyle = P.paper;
+    ctx.fillRect(photoX, photoY, photoSize, photoSize);
+    ctx.fillStyle = P.muted;
+    ctx.font = '700 28px "Noto Sans TC"';
+    ctx.textAlign = 'center';
+    ctx.fillText('（無圖片）', CARD_W / 2, photoY + photoSize / 2);
+  }
+  ctx.restore();
+
+  // 來源絲帶
+  ctx.fillStyle = P.ribbon;
+  const ribbonLabel = item.source === 'seven' ? '🔥 7-11 快閃購' : '🆕 khw1 現貨';
+  ctx.font = '700 32px "Noto Sans TC"';
+  const ribbonW = ctx.measureText(ribbonLabel).width + 56;
+  ctx.beginPath();
+  ctx.moveTo(M, photoY + 24);
+  ctx.arcTo(M + ribbonW, photoY + 24, M + ribbonW, photoY + 24 + 64, 16);
+  ctx.arcTo(M + ribbonW, photoY + 24 + 64, M, photoY + 24 + 64, 16);
+  ctx.arcTo(M, photoY + 24 + 64, M, photoY + 24, 16);
+  ctx.arcTo(M, photoY + 24, M + ribbonW, photoY + 24, 16);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(ribbonLabel, M + 28, photoY + 24 + 32);
+  ctx.textBaseline = 'alphabetic';
+
+  // 商品名稱
+  const textTop = photoY + photoSize + 60;
+  ctx.fillStyle = P.ink;
+  ctx.font = '700 56px "Noto Serif TC"';
+  ctx.textAlign = 'left';
+  const nameLines = wrapText(ctx, item.name, CARD_W - M * 2, 2);
+  nameLines.forEach((ln, i) => ctx.fillText(ln, M, textTop + i * 68));
+
+  // 價錢
+  const priceY = textTop + nameLines.length * 68 + 56;
+  ctx.fillStyle = P.ribbon;
+  ctx.font = '900 72px "Noto Sans TC"';
+  ctx.fillText('NT$' + Number(item.price).toLocaleString(), M, priceY);
+
+  // 底部品牌
+  ctx.fillStyle = P.muted;
+  ctx.font = '400 26px "Noto Sans TC"';
+  ctx.fillText('Catbox 台灣代購．佛系台灣代購', M, CARD_H - 60);
+
+  return await new Promise(ok => cv.toBlob(ok, 'image/jpeg', 0.92));
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function uploadToDrive(dataUri, filename) {
+  const res = await fetch(CONFIG.GAS_EXEC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'uploadImage', dataUri, filename }),
+  });
+  const d = await res.json();
+  if (d.error) throw new Error(d.error);
+  return d.url;
+}
+
+function buildDefaultCaption() {
+  if (!items.length) return '';
+  const lines = ['✨ 台灣現貨快閃 ✨', ''];
+  items.forEach((it, i) => {
+    lines.push(`${i + 1}. ${it.name}　NT$${it.price}`);
+  });
+  lines.push('');
+  lines.push('數量有限,手快有手慢冇 🏃');
+  lines.push('留言或 DM 查詢下單 💬');
+  return lines.join('\n');
+}
+
+// 每加/減商品，文案文字框未被手動改過就自動重新產生
+let captionTouched = false;
+document.getElementById('post-caption').addEventListener('input', () => { captionTouched = true; });
+const _origRenderItems = renderItems;
+renderItems = function () {
+  _origRenderItems();
+  if (!captionTouched) document.getElementById('post-caption').value = buildDefaultCaption();
+  if (!document.getElementById('post-title').value && items.length) {
+    document.getElementById('post-title').value = items[0].name;
+  }
+};
+
+async function generateAndSchedule() {
+  if (!items.length) { alert('請先加入至少一件商品'); return; }
+  const btn = document.getElementById('generate-btn');
+  const msg = document.getElementById('generate-msg');
+  const previewEl = document.getElementById('card-preview');
+  btn.disabled = true;
+  previewEl.innerHTML = '';
+  const imageUrls = [];
+  try {
+    for (let i = 0; i < items.length; i++) {
+      btn.textContent = `產生緊卡圖 (${i + 1}/${items.length})…`;
+      const blob = await drawCard(items[i]);
+      const dataUri = await blobToDataUrl(blob);
+      previewEl.innerHTML += `<img src="${dataUri}" class="w-40 rounded-xl border border-[#D7CCC8]">`;
+      btn.textContent = `上傳緊 (${i + 1}/${items.length})…`;
+      const url = await uploadToDrive(dataUri, `post-${Date.now()}-${i}.jpg`);
+      imageUrls.push(url);
+    }
+
+    btn.textContent = '寫入排程…';
+    const scheduledAt = new Date(document.getElementById('post-schedule').value).toISOString();
+    const res = await fetch(CONFIG.GAS_EXEC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'appendPost',
+        title: document.getElementById('post-title').value || items[0].name,
+        imageUrls: imageUrls.join(','),
+        caption: document.getElementById('post-caption').value,
+        scheduledAt,
+        status: 'pending',
+      }),
+    });
+    const text = await res.text();
+    if (text.indexOf('Post Added') === -1) throw new Error(text);
+
+    msg.textContent = '✅ 已加入排程,Make 會自動出 post。';
+    items = [];
+    captionTouched = false;
+    renderItems();
+    document.getElementById('post-title').value = '';
+  } catch (e) {
+    msg.textContent = '❌ 失敗:' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✨ 產生卡圖並排程';
+  }
+}
+</script>
+</body>
+</html>
