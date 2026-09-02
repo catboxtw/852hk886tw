@@ -134,6 +134,9 @@ const CONFIG = {
   SUPABASE_URL: "https://uaezszjexqazqtjiuyuo.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZXpzempleHFhenF0aml1eXVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODEwMDcsImV4cCI6MjEwMjQ1NzAwN30.aiaffhYgnFDMsCQ9QNZVHmjx57wY4tIH6LYkaCoAmtE",
   GAS_EXEC_URL: "",       // TODO: 「賣貨便訂單腳本」GAS Web App 的 /exec 網址（同 bot 用嗰條一樣）
+  // 只准呢個 email 登入 —— 就算 Supabase project 入面之後整多咗第二個帳戶,
+  // 呢頁都唔會俾第二個帳戶用(登入完會即刻登出,唔會入到主畫面)。
+  ALLOWED_EMAIL: "852hk886tw@gmail.com",
 };
 
 let supabaseClient = null;
@@ -149,9 +152,18 @@ let items = []; // { id, source: 'seven'|'khw1', name, price, image (dataURL or 
   checkSession();
 })();
 
+function isAllowedEmail(email) {
+  return (email || '').trim().toLowerCase() === CONFIG.ALLOWED_EMAIL.toLowerCase();
+}
+
 async function checkSession() {
   const { data: { session } } = await supabaseClient.auth.getSession();
-  if (session) showApp(); else showLogin();
+  if (session && isAllowedEmail(session.user?.email)) {
+    showApp();
+  } else {
+    if (session) await supabaseClient.auth.signOut();
+    showLogin();
+  }
 }
 
 function showLogin() {
@@ -175,10 +187,16 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   btn.disabled = true; btn.textContent = '登入中...';
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
-  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
   btn.disabled = false; btn.textContent = '登入';
   if (error) {
     errEl.textContent = '登入失敗:' + error.message;
+    errEl.classList.remove('hidden');
+    return;
+  }
+  if (!isAllowedEmail(data.user?.email)) {
+    await supabaseClient.auth.signOut();
+    errEl.textContent = '呢個帳戶冇權限使用呢個工具。';
     errEl.classList.remove('hidden');
     return;
   }
